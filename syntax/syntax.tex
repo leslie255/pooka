@@ -1,5 +1,5 @@
 \documentclass[a4paper]{article}
-\title{Formal (Somewhat) Definition for Kabtut Language Syntax}
+\title{Formal (Somewhat) Definition for Pooka Language Syntax}
 \author{Leslie}
 \usepackage[
     a4paper,
@@ -199,7 +199,6 @@ This distinction is made to make room in the syntax for a potential future expan
     \item \verb/||/
     \item \verb|+|
     \item \verb|-|
-    \item \verb|*|
     \item \verb|/|
     \item \verb|%|
     \item \verb|+=|
@@ -207,7 +206,6 @@ This distinction is made to make room in the syntax for a potential future expan
     \item \verb|*=|
     \item \verb|/=|
     \item \verb|%=|
-    \item \verb|+=|
     \item \verb|>|
     \item \verb|<|
     \item \verb|>=|
@@ -296,7 +294,7 @@ This distinction is made to make room in the syntax for a potential future expan
 \subsection{Function Declarations}
 
 \begin{verbatim}
-    <fn decl> := <ident> :: (<pat ty pairs>) {<block>}|{;}
+    <fn decl> := <ident> :: (<pat ty pairs>) {= <expr> ;}|{<block>}|{;}
 \end{verbatim}
 
 \subsection{Type/Typealias Statements}
