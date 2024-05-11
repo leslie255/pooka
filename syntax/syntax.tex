@@ -1,0 +1,331 @@
+\documentclass[a4paper]{article}
+\title{Formal (Somewhat) Definition for Kabtut Language Syntax}
+\author{Leslie}
+\usepackage[
+    a4paper,
+    left=2cm,
+    right=2cm,
+    top=2cm,
+    bottom=2cm,
+    footskip=0.1cm]{geometry}
+\usepackage{amsmath}
+\usepackage{gensymb}
+
+\begin{document}
+
+\maketitle
+
+\section{Lexical Elements}
+
+\subsection{Identifiers}
+
+\begin{verbatim}
+    <ident>
+\end{verbatim}
+
+An identifier is a string of characters that starts with one of the below:
+
+\begin{itemize}
+    \item A UTF-8 alphanumeric that is not an ASCII numeric
+    \item A UTF-8 emoji
+    \item An ASCII underscore
+\end{itemize}
+
+An identifier can then be followed by one of the below:
+
+\begin{itemize}
+    \item Any of the above
+    \item An ASCII numeric
+    \item An ASCII single quote
+\end{itemize}
+
+An identifier cannot be a boolean literal or a keyword.
+
+\subsection{Literals}
+
+\begin{verbatim}
+    <lit> := <int lit>|<float lit>|<string lit>|<char lit>|<bool lit>
+\end{verbatim}
+
+\subsubsection{Integer Literals}
+
+\begin{verbatim}
+    <int lit>
+\end{verbatim}
+
+An integer literal starts with either a base prefix or an ASCII numeric, as listed below:
+
+\begin{enumerate}
+    \item \verb|0b|: Binary
+        \label{base_prefix_0b}
+    \item \verb|0o|: Octal
+    \item \verb|0d|: Decimal
+    \item \verb|0x|: Hexadecimal
+        \label{base_prefix_0x}
+    \item Any ASCII numeric: Decimal
+        \label{no_base_prefix}
+\end{enumerate}
+
+\begin{itemize}
+    \item For case \ref{base_prefix_0b} to \ref{base_prefix_0x}:
+    \begin{itemize}
+        \item It must be followed by a string of characters of that specific base.
+    \end{itemize}
+    \item For case \ref{no_base_prefix}:
+    \begin{itemize}
+        \item It may then be followed by a string of ASCII numerics.
+        \item It may then be followed by the character \verb|e|, if so, it must then be followed by a string of ASCII numerics.
+    \end{itemize}
+\end{itemize}
+
+If a sequence of character start with an ASCII numeric, and it otherwise satisfies the requirement of being an identifier, it is an invalid integer literal.
+
+\subsubsection{Floating Point Literals}
+
+\begin{verbatim}
+    <float lit>
+\end{verbatim}
+
+A floating point literal starts with an ASCII numeric, followed by an ASCII period, followed by another string of ASCII numerics.
+
+It may then be followed by the character \verb|e|, if so, it must then be followed by a string of ASCII numerics.
+
+\subsubsection{Character Literals}
+
+\begin{verbatim}
+    <char lit>
+\end{verbatim}
+
+A character literal starts with an ASCII single quote sign, followed by either one UTF-8 character or an string escape sequence, followed by another single quote sign.
+
+\subsubsection{String Literals}
+
+\begin{verbatim}
+    <string lit>
+\end{verbatim}
+
+A string literal starts with an ASCII double quote sign, followed by a sequence of either UTF-8 characters or string escape sequence, followed by another single quote sign.
+
+\subsubsection{String Escape Sequence}
+
+Valid string escape sequences are:
+
+\begin{itemize}
+    \item \verb|\n|: Newline
+    \item \verb|\r|: Carrige return
+    \item \verb|\t|: Horizontal tab
+    \item \verb|\v|: Vertical tab
+    \item \verb|\\|: Backslash
+    \item \verb|\0|: Null
+    \item \verb|\x|, followed by 2 hexadecimal digits
+    \item \verb|\u{|, followed by 2 to 6 hexadecimal digits, followed by \verb|}|
+\end{itemize}
+
+\subsubsection{Boolean Literal}
+
+\begin{verbatim}
+    <bool lit>
+\end{verbatim}
+
+Boolean literals are \verb|true| or \verb|false|.
+
+\subsection{Macro Directives}
+
+\begin{verbatim}
+    <@ident>
+\end{verbatim}
+
+Macro directive starts with a \verb|@|, it can then be followed by:
+
+\begin{itemize}
+    \item A UTF-8 alphanumeric that is not an ASCII numeric
+    \item A UTF-8 emoji
+    \item An ASCII underscore
+    \item An ASCII single quote
+\end{itemize}
+
+\subsection{Parenthesis}
+
+A parenthesis is one of the following characters:
+
+\begin{itemize}
+    \item \verb|{|
+    \item \verb|}|
+    \item \verb|[|
+    \item \verb|]|
+    \item \verb|(|
+    \item \verb|)|
+\end{itemize}
+
+\subsection{Punctuations}
+
+\begin{verbatim}
+    <punct> := <unreserved punct> | <reserved punct>
+\end{verbatim}
+
+A punctuation is a sequence of characters that satisify {\bf all} follow requirements:
+
+\begin{itemize}
+    \item Is a UTF-8 punctuation character
+    \item Is not a \verb|<paren>|
+    \item Is not an ASCII single quote or double quote
+\end{itemize}
+
+Some punctuations are reserved (\verb|<reserved punct>|), the rest are not (\verb|<unreserved punct>|).
+
+This distinction is made to make room in the syntax for a potential future expansion of custom operators, for this reason occurance of \verb|<unreserved punct>| in source code is considered invalid in the current version.
+
+\begin{itemize}
+    \item \verb|,|
+    \item \verb|.|
+    \item \verb|=|
+    \item \verb|:=|
+    \item \verb|:|
+    \item \verb|::|
+    \item \verb|*|
+    \item \verb|~|
+    \item \verb|&|
+    \item \verb/|/
+    \item \verb|^|
+    \item \verb|>>|
+    \item \verb|<<|
+    \item \verb|>>=|
+    \item \verb|<<=|
+    \item \verb|&=|
+    \item \verb/|=/
+    \item \verb|^=|
+    \item \verb|!|
+    \item \verb|&&|
+    \item \verb/||/
+    \item \verb|+|
+    \item \verb|-|
+    \item \verb|*|
+    \item \verb|/|
+    \item \verb|%|
+    \item \verb|+=|
+    \item \verb|-=|
+    \item \verb|*=|
+    \item \verb|/=|
+    \item \verb|%=|
+    \item \verb|+=|
+    \item \verb|>|
+    \item \verb|<|
+    \item \verb|>=|
+    \item \verb|<=|
+    \item \verb|==|
+    \item \verb|!=|
+    \item \verb|@|
+\end{itemize}
+
+\pagebreak
+
+\section{Syntax}
+
+\subsection{Types}
+
+\begin{verbatim}
+    <ty> := <ident>
+          | &<ident>
+          | &mut <ident>
+          | [<ty>]
+          | &mut [<ty>]
+          | ({<ty>},*)
+          | struct \{ <pat ty pairs> \}
+          | unoin \{ <pat ty pairs> \}
+          | enum \{ {<ident>(<ty>)},* \}
+\end{verbatim}
+
+\subsection{Patterns}
+
+\begin{verbatim}
+    <pat> := <ident>
+           | mut <ident>
+           | ({<pat>},*)
+\end{verbatim}
+
+\begin{verbatim}
+    <pat ty pairs> := {<pat>:<ty>},*
+\end{verbatim}
+
+\subsection{Expressions}
+
+\begin{verbatim}
+    <expr> := <ident>
+            | <literal>
+            | <op expr>
+            | ({<expr>},*)
+\end{verbatim}
+
+\subsection{Assignments}
+
+\begin{verbatim}
+    <assign> := <pat> = <expr> ;
+\end{verbatim}
+
+\begin{verbatim}
+    <expr> := <ident>
+            | <literal>
+            | <op expr>
+            | ({<expr>},*)
+\end{verbatim}
+
+\subsection{Statements and Blocks}
+
+\begin{verbatim}
+    <stmt> := <expr> ;
+            | <var decl>
+            | <fn decl>
+            | <typealias>
+            | <newtype>
+            | <if>
+            | <loop>
+            | <while>
+\end{verbatim}
+
+\begin{verbatim}
+    <block> := \{ {<stmt>}* \};
+\end{verbatim}
+
+\subsection{Variable Declarations}
+
+\begin{verbatim}
+    <var decl> := <pat> : <ty> {= <expr>}? ;
+                | <pat> {:=}|{: =} <expr> ;
+\end{verbatim}
+
+\subsection{Function Declarations}
+
+\begin{verbatim}
+    <fn decl> := <ident> :: (<pat ty pairs>) {<block>}|{;}
+\end{verbatim}
+
+\subsection{Type/Typealias Statements}
+
+\begin{verbatim}
+    <newtype> := type <ident> = <ty> ;
+\end{verbatim}
+
+\begin{verbatim}
+    <typealias> := typealias <ident> = <ty> ;
+\end{verbatim}
+
+\subsection{If}
+
+\begin{verbatim}
+    <if> := if <expr> <block> {else <block>}?
+\end{verbatim}
+
+\subsection{Loop}
+
+\begin{verbatim}
+    <loop> := loop <block>
+\end{verbatim}
+
+\subsection{While}
+
+\begin{verbatim}
+    <while> := while <expr> <block>
+\end{verbatim}
+
+\end{document}
+
