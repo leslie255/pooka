@@ -229,7 +229,7 @@ This distinction is made to make room in the syntax for a potential future expan
           | &mut [<ty>]
           | ({<ty>},*)
           | struct \{ <pat ty pairs> \}
-          | unoin \{ <pat ty pairs> \}
+          | union \{ <pat ty pairs> \}
           | enum \{ {<ident>(<ty>)},* \}
 \end{verbatim}
 
@@ -249,7 +249,7 @@ This distinction is made to make room in the syntax for a potential future expan
 
 \begin{verbatim}
     <expr> := <ident>
-            | <literal>
+            | <lit>
             | <op expr>
             | ({<expr>},*)
 \end{verbatim}
@@ -262,9 +262,11 @@ This distinction is made to make room in the syntax for a potential future expan
 
 \begin{verbatim}
     <expr> := <ident>
-            | <literal>
+            | <lit>
             | <op expr>
             | ({<expr>},*)
+            | <if>
+            | <loop>
 \end{verbatim}
 
 \subsection{Statements and Blocks}

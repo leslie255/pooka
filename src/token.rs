@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::span::{Span, Spanned, ToSpanned};
 
 pub trait TokenTrait: Sized {
-    fn to_token() -> Token;
+    fn to_token(self) -> Token;
 }
 
 #[derive(Clone, PartialEq, PartialOrd)]
@@ -15,6 +15,18 @@ pub enum Token {
     FloatLiteral(f64),
     CharLiteral(u32),
     BoolLiteral(bool),
+    Mut,
+    Struct,
+    Union,
+    Enum,
+    Typealias,
+    Type,
+    If,
+    Loop,
+    While,
+    Return,
+    Break,
+    Continue,
     ParenL,
     ParenR,
     BracketL,
@@ -64,31 +76,85 @@ pub enum Token {
 pub mod tokens {
     use super::*;
 
-    macro decl_token_type($name:ident) {
-        pub struct $name;
-        impl TokenTrait for $name {
-            fn to_token() -> Token {
-                Token::$name
+    macro decl_token_type {
+        ($name:ident) => {
+            #[derive(Clone, PartialEq, PartialOrd)]
+            pub struct $name;
+            impl TokenTrait for $name {
+                fn to_token(self) -> Token {
+                    Token::$name
+                }
             }
-        }
-        impl FnOnce<(Span,)> for $name {
-            type Output = Spanned<Token>;
-            extern "rust-call" fn call_once(self, args: (Span,)) -> Self::Output {
-                Self::to_token().to_spanned(args.0)
+            impl FnOnce<(Span,)> for $name {
+                type Output = Spanned<Token>;
+                extern "rust-call" fn call_once(self, args: (Span,)) -> Self::Output {
+                    self.to_token().to_spanned(args.0)
+                }
             }
-        }
-        impl FnMut<(Span,)> for $name {
-            extern "rust-call" fn call_mut(&mut self, args: (Span,)) -> Self::Output {
-                self.call_once(args)
+            impl FnMut<(Span,)> for $name {
+                extern "rust-call" fn call_mut(&mut self, args: (Span,)) -> Self::Output {
+                    self.call_once(args)
+                }
             }
-        }
-        impl Fn<(Span,)> for $name {
-            extern "rust-call" fn call(&self, args: (Span,)) -> Self::Output {
-                self.call_once(args)
+            impl Fn<(Span,)> for $name {
+                extern "rust-call" fn call(&self, args: (Span,)) -> Self::Output {
+                    self.call_once(args)
+                }
             }
-        }
+        },
+        ($name:ident ( $field:ty )) => {
+            #[derive(Clone, PartialEq, PartialOrd)]
+            pub struct $name($field);
+            impl TokenTrait for $name {
+                fn to_token(self) -> Token {
+                    Token::$name(self.0)
+                }
+            }
+            impl FnOnce<(Span,)> for $name {
+                type Output = Spanned<Token>;
+                extern "rust-call" fn call_once(self, args: (Span,)) -> Self::Output {
+                    self.to_token().to_spanned(args.0)
+                }
+            }
+            impl FnMut<(Span,)> for $name {
+                extern "rust-call" fn call_mut(&mut self, args: (Span,)) -> Self::Output {
+                    self.call_once(args)
+                }
+            }
+            impl Fn<(Span,)> for $name {
+                extern "rust-call" fn call(&self, args: (Span,)) -> Self::Output {
+                    self.call_once(args)
+                }
+            }
+        },
     }
 
+    decl_token_type!(Ident(Rc<str>));
+    decl_token_type!(MacroDir(Rc<str>));
+    decl_token_type!(StrLiteral(Rc<[u8]>));
+    decl_token_type!(IntLiteral(u64));
+    decl_token_type!(FloatLiteral(f64));
+    decl_token_type!(CharLiteral(u32));
+    decl_token_type!(BoolLiteral(bool));
+    decl_token_type!(Mut);
+    decl_token_type!(Struct);
+    decl_token_type!(Union);
+    decl_token_type!(Enum);
+    decl_token_type!(Typealias);
+    decl_token_type!(Type);
+    decl_token_type!(If);
+    decl_token_type!(Loop);
+    decl_token_type!(While);
+    decl_token_type!(Return);
+    decl_token_type!(Break);
+    decl_token_type!(Continue);
+    decl_token_type!(ParenL);
+    decl_token_type!(ParenR);
+    decl_token_type!(BracketL);
+    decl_token_type!(BracketR);
+    decl_token_type!(BraceL);
+    decl_token_type!(BraceR);
+    decl_token_type!(UnreservedPunct(Rc<str>));
     decl_token_type!(Comma);
     decl_token_type!(Period);
     decl_token_type!(Eq);
@@ -129,6 +195,18 @@ pub mod tokens {
 
     #[allow(unused)]
     pub macro Token {
+        [mut] => { Mut },
+        [struct] => { Struct },
+        [union] => { Union },
+        [enum] => { Enum },
+        [typealias] => { Typealias },
+        [type] => { Type },
+        [if] => { If },
+        [loop] => { Loop },
+        [while] => { While },
+        [return] => { Return },
+        [break] => { Break },
+        [continue] => { Continue },
         [,] => { Comma },
         [.] => { Period },
         [=] => { Eq },
