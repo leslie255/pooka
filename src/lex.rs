@@ -1,6 +1,7 @@
-use std::{iter::Peekable, rc::Rc, str::CharIndices};
+use std::{iter::Peekable, rc::Rc};
 
 use crate::{
+    source_str::{SourceCharIndices, SourceStr},
     span::{Span, Spanned, ToSpanned},
     token::Token,
 };
@@ -36,12 +37,13 @@ impl LexerError {
 
 struct LexerState<'s> {
     path: Rc<str>,
-    input: &'s str,
-    chars: Peekable<CharIndices<'s>>,
+    input: SourceStr<'s>,
+    chars: Peekable<SourceCharIndices<'s>>,
 }
 
 impl<'s> LexerState<'s> {
     fn new(path: Rc<str>, input: &'s str) -> Self {
+        let input = SourceStr::from(input);
         Self {
             path,
             input,
@@ -65,11 +67,10 @@ impl<'s> LexerState<'s> {
                     }
                     self.chars.next();
                 }
-                let s = &self.input[start..=end];
+                let s = self.input.slice(start..end);
                 tokens.push(Token::Ident(s.into()).to_spanned(Span {
                     path: Some(self.path.clone()),
-                    start,
-                    end,
+                    range: Some(start..end),
                 }));
                 Some(Ok(()))
             }

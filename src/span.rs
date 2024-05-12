@@ -1,16 +1,17 @@
 use std::{
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, Range},
     rc::Rc,
 };
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+use crate::source_str::SourceIndex;
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Span {
     pub path: Option<Rc<str>>,
-    pub start: usize,
-    pub end: usize,
+    pub range: Option<Range<SourceIndex>>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Spanned<T> {
     pub inner: T,
     pub span: Span,

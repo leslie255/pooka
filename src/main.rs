@@ -8,10 +8,11 @@ mod token;
 mod ast;
 mod parse;
 mod lex;
+mod source_str;
 
 fn main() {
     let path: Rc<str> = "source.pooka".into();
-    let src = "identifier";
+    let src = "你好";
     let tokens = lex::lex(path, src);
     dbg!(tokens);
 }
