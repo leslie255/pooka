@@ -12,7 +12,7 @@ mod source_str;
 
 fn main() {
     let path: Rc<str> = "source.pooka".into();
-    let src = "你好";
+    let src = "你好 + %^!$ ident ";
     let tokens = lex::lex(path, src);
     dbg!(tokens);
 }

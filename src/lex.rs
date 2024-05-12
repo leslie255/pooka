@@ -1,7 +1,7 @@
 use std::{iter::Peekable, rc::Rc};
 
 use crate::{
-    source_str::{SourceCharIndices, SourceStr},
+    source_str::{SourceCharIndices, SourceIndex, SourceStr},
     span::{Span, Spanned, ToSpanned},
     token::Token,
 };
@@ -25,7 +25,9 @@ pub fn lex(path: Rc<str>, input: &str) -> Vec<Spanned<Token>> {
 }
 
 #[derive(Debug, Clone)]
-enum LexerError {}
+enum LexerError {
+    InvalidChar(char),
+}
 
 impl LexerError {
     fn is_fatal(&self) -> bool {
@@ -57,16 +59,9 @@ impl<'s> LexerState<'s> {
         tokens: &mut Vec<Spanned<Token>>,
     ) -> Option<Result<(), Spanned<LexerError>>> {
         match self.chars.next()? {
-            (_, c) if c.is_ascii_digit() => todo!("int/float literals"),
+            (_, c) if c.is_ascii_digit() => todo!("number literals"),
             (start, c) if is_ident_body(c) => {
-                let mut end = start;
-                while let Some(&(i, c)) = self.chars.peek() {
-                    end = i;
-                    if !is_ident_body(c) {
-                        break;
-                    }
-                    self.chars.next();
-                }
+                let end = take_while(start, &mut self.chars, is_ident_body)?;
                 let s = self.input.slice(start..end);
                 tokens.push(Token::Ident(s.into()).to_spanned(Span {
                     path: Some(self.path.clone()),
@@ -77,9 +72,80 @@ impl<'s> LexerState<'s> {
             (_, '\'') => todo!("character literals"),
             (_, '\"') => todo!("string literals"),
             (_, '@') => todo!("macro directives"),
-            (_, c) if c.is_unicode_punctuation() => todo!("punctuations"),
-            _ => todo!("punctuations"),
+            (start, c) if c.is_unicode_punctuation() => {
+                let end = take_while(start, &mut self.chars, char::is_unicode_punctuation)?;
+                let s = self.input.slice(start..end);
+                let token = parse_puntuation(s);
+                tokens.push(token.to_spanned(Span {
+                    path: Some(self.path.clone()),
+                    range: Some(start..end),
+                }));
+                Some(Ok(()))
+            }
+            (i, c) => Some(Err(LexerError::InvalidChar(c).to_spanned(Span {
+                path: Some(self.path.clone()),
+                range: Some(i..i),
+            }))),
         }
+    }
+}
+
+fn take_while<'s>(
+    start: SourceIndex,
+    char_indices: &mut Peekable<SourceCharIndices<'s>>,
+    mut predicate: impl FnMut(char) -> bool,
+) -> Option<SourceIndex> {
+    let mut end = start;
+    while let Some(&(i, c)) = char_indices.peek() {
+        if !predicate(c) {
+            break;
+        }
+        end = i;
+        char_indices.next();
+    }
+    Some(end)
+}
+
+fn parse_puntuation(s: &str) -> Token {
+    match s {
+        "," => Token::Comma,
+        "." => Token::Period,
+        "=" => Token::Eq,
+        ":=" => Token::ColonEq,
+        ":" => Token::Colon,
+        "::" => Token::ColonColon,
+        "*" => Token::Ast,
+        "~" => Token::Tilde,
+        "&" => Token::Amp,
+        "|" => Token::Verbar,
+        "^" => Token::Circ,
+        ">>" => Token::GtGt,
+        "<<" => Token::LtLt,
+        ">>=" => Token::GtGtEq,
+        "<<=" => Token::LtLtEq,
+        "&=" => Token::AmpEq,
+        "|=" => Token::VerbarEq,
+        "^=" => Token::CircEq,
+        "!" => Token::Excl,
+        "&&" => Token::AmpAmp,
+        "||" => Token::VerbarVerbar,
+        "+" => Token::Plus,
+        "-" => Token::Minus,
+        "/" => Token::Sol,
+        "%" => Token::Percnt,
+        "+=" => Token::PlusEq,
+        "-=" => Token::MinusEq,
+        "*=" => Token::AstEq,
+        "/=" => Token::SolEq,
+        "%=" => Token::PercntEq,
+        ">" => Token::Gt,
+        "<" => Token::Lt,
+        ">=" => Token::GtEq,
+        "<=" => Token::LtEq,
+        "==" => Token::EqEq,
+        "!=" => Token::ExclEq,
+        "@" => Token::Commat,
+        s => Token::UnreservedPunct(s.into()),
     }
 }
 
