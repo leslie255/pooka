@@ -74,11 +74,12 @@ An integer literal starts with either a base prefix or an ASCII numeric, as list
     \item For case \ref{no_base_prefix}:
     \begin{itemize}
         \item It may then be followed by a string of ASCII numerics.
-        \item It may then be followed by the character \verb|e|, if so, it must then be followed by a string of ASCII numerics.
     \end{itemize}
 \end{itemize}
 
-If a sequence of character start with an ASCII numeric, and it otherwise satisfies the requirement of being an identifier, it is an invalid integer literal.
+It may then be followed by the character \verb|e|, if so, it must then be followed by a string of ASCII numerics.
+
+If a sequence of character start with an ASCII numeric, but is not a valid number literal or floating point literal, and it otherwise satisfies the requirement of being an identifier, it is an invalid integer literal.
 
 \subsubsection{Floating Point Literals}
 
@@ -166,7 +167,7 @@ A parenthesis is one of the following characters:
 A punctuation is a sequence of characters that satisify {\bf all} follow requirements:
 
 \begin{itemize}
-    \item All characters in the sequence are Unicode punctuation characters, this includes:
+    \item All characters are in the sequence are Unicode punctuation characters, this includes:
     \begin{itemize}
         \item ASCII Punctuations
         \item Unicode General Punctuations
