@@ -26,8 +26,8 @@
 An identifier is a string of characters that starts with one of the below:
 
 \begin{itemize}
-    \item A UTF-8 alphanumeric that is not an ASCII numeric
-    \item A UTF-8 emoji
+    \item A Unicode alphanumeric that is not an ASCII numeric
+    \item A Unicode emoji
     \item An ASCII underscore
 \end{itemize}
 
@@ -96,7 +96,7 @@ It may then be followed by the character \verb|e|, if so, it must then be follow
     <char lit>
 \end{verbatim}
 
-A character literal starts with an ASCII single quote sign, followed by either one UTF-8 character or an string escape sequence, followed by another single quote sign.
+A character literal starts with an ASCII single quote sign, followed by either one Unicode character or an string escape sequence, followed by another single quote sign.
 
 \subsubsection{String Literals}
 
@@ -104,7 +104,7 @@ A character literal starts with an ASCII single quote sign, followed by either o
     <string lit>
 \end{verbatim}
 
-A string literal starts with an ASCII double quote sign, followed by a sequence of either UTF-8 characters or string escape sequence, followed by another single quote sign.
+A string literal starts with an ASCII double quote sign, followed by a sequence of either Unicode characters or string escape sequence, followed by another single quote sign.
 
 \subsubsection{String Escape Sequence}
 
@@ -138,8 +138,8 @@ Boolean literals are \verb|true| or \verb|false|.
 Macro directive starts with a \verb|@|, it can then be followed by:
 
 \begin{itemize}
-    \item A UTF-8 alphanumeric that is not an ASCII numeric
-    \item A UTF-8 emoji
+    \item A Unicode alphanumeric that is not an ASCII numeric
+    \item A Unicode emoji
     \item An ASCII underscore
     \item An ASCII single quote
 \end{itemize}
@@ -166,7 +166,14 @@ A parenthesis is one of the following characters:
 A punctuation is a sequence of characters that satisify {\bf all} follow requirements:
 
 \begin{itemize}
-    \item Is a UTF-8 punctuation character
+    \item All characters in the sequence are Unicode punctuation characters, this includes:
+    \begin{itemize}
+        \item ASCII Punctuations
+        \item Unicode General Punctuations
+        \item Unicode Supplemental Punctuations
+        \item Unicode Mathematical Operators
+        \item Unicode Supplemental Mathematical Operators
+    \end{itemize}
     \item Is not a \verb|<paren>|
     \item Is not an ASCII single quote or double quote
 \end{itemize}

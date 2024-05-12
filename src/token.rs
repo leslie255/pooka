@@ -6,7 +6,7 @@ pub trait TokenTrait: Sized {
     fn to_token(self) -> Token;
 }
 
-#[derive(Clone, PartialEq, PartialOrd)]
+#[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub enum Token {
     Ident(Rc<str>),
     MacroDir(Rc<str>),

@@ -3,14 +3,14 @@ use std::{
     rc::Rc,
 };
 
-#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
-    pub src: Option<Rc<str>>,
+    pub path: Option<Rc<str>>,
     pub start: usize,
     pub end: usize,
 }
 
-#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Spanned<T> {
     pub inner: T,
     pub span: Span,
