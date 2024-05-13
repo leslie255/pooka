@@ -1,18 +1,26 @@
-#![feature(decl_macro, fn_traits, unboxed_closures)]
+#![feature(decl_macro, fn_traits, unboxed_closures, try_blocks)]
 #![allow(dead_code)]
 
 use std::rc::Rc;
 
+use span::Spanned;
+use token::tokens::{self, Token};
+
+mod ast;
+mod lex;
+mod parse;
+mod source_str;
 mod span;
 mod token;
-mod ast;
-mod parse;
-mod lex;
-mod source_str;
 
 fn main() {
+    use crate::ast::*;
+    use parse::*;
     let path: Rc<str> = "source.pooka".into();
-    let src = "0xFF";
-    let tokens = lex::lex(path, src);
-    dbg!(tokens);
+    let src = "[a, b, c, ]";
+    let tokens = lex::lex(path.clone(), src);
+    let mut parser_state = ParserState::new(&tokens, path.clone());
+    let punctuated: Spanned<InBrackets<Punctuated<tokens::Ident, Token![,]>>> =
+        Parse::parse(&mut parser_state).unwrap();
+    dbg!(punctuated);
 }

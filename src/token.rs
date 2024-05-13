@@ -1,8 +1,8 @@
-use std::rc::Rc;
+use std::{rc::Rc, fmt::Debug, fmt};
 
 use crate::span::{Span, Spanned, ToSpanned};
 
-pub trait TokenTrait: Sized {
+pub trait TokenTrait: Sized + Default {
     fn to_token(self) -> Token;
 }
 
@@ -70,6 +70,7 @@ pub enum Token {
     LtEq,
     EqEq,
     ExclEq,
+    Arrow,
     Commat,
 }
 
@@ -77,8 +78,8 @@ pub mod tokens {
     use super::*;
 
     macro decl_token_type {
-        ($name:ident) => {
-            #[derive(Clone, PartialEq, PartialOrd)]
+        ($name:ident, $debug:literal $(,)?) => {
+            #[derive(Clone, PartialEq, PartialOrd, Default)]
             pub struct $name;
             impl TokenTrait for $name {
                 fn to_token(self) -> Token {
@@ -101,10 +102,20 @@ pub mod tokens {
                     self.call_once(args)
                 }
             }
+            impl Debug for $name {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    write!(f, $debug)
+                }
+            }
         },
-        ($name:ident ( $field:ty )) => {
+        ($name:ident ( $field:ty ), $default:expr) => {
             #[derive(Clone, PartialEq, PartialOrd)]
-            pub struct $name($field);
+            pub struct $name(pub $field);
+            impl Default for $name {
+                fn default() -> Self {
+                    $name($default().into())
+                }
+            }
             impl TokenTrait for $name {
                 fn to_token(self) -> Token {
                     Token::$name(self.0)
@@ -126,72 +137,86 @@ pub mod tokens {
                     self.call_once(args)
                 }
             }
+            impl Debug for $name {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    Debug::fmt(&self.0, f)
+                }
+            }
         },
     }
 
-    decl_token_type!(Ident(Rc<str>));
-    decl_token_type!(MacroDir(Rc<str>));
-    decl_token_type!(StrLiteral(Rc<[u8]>));
-    decl_token_type!(IntLiteral(u64));
-    decl_token_type!(FloatLiteral(f64));
-    decl_token_type!(CharLiteral(u32));
-    decl_token_type!(BoolLiteral(bool));
-    decl_token_type!(Mut);
-    decl_token_type!(Struct);
-    decl_token_type!(Union);
-    decl_token_type!(Enum);
-    decl_token_type!(Typealias);
-    decl_token_type!(Type);
-    decl_token_type!(If);
-    decl_token_type!(Loop);
-    decl_token_type!(While);
-    decl_token_type!(Return);
-    decl_token_type!(Break);
-    decl_token_type!(Continue);
-    decl_token_type!(ParenL);
-    decl_token_type!(ParenR);
-    decl_token_type!(BracketL);
-    decl_token_type!(BracketR);
-    decl_token_type!(BraceL);
-    decl_token_type!(BraceR);
-    decl_token_type!(UnreservedPunct(Rc<str>));
-    decl_token_type!(Comma);
-    decl_token_type!(Period);
-    decl_token_type!(Eq);
-    decl_token_type!(ColonEq);
-    decl_token_type!(Colon);
-    decl_token_type!(ColonColon);
-    decl_token_type!(Ast);
-    decl_token_type!(Tilde);
-    decl_token_type!(Amp);
-    decl_token_type!(Verbar);
-    decl_token_type!(Circ);
-    decl_token_type!(GtGt);
-    decl_token_type!(LtLt);
-    decl_token_type!(GtGtEq);
-    decl_token_type!(LtLtEq);
-    decl_token_type!(AmpEq);
-    decl_token_type!(VerbarEq);
-    decl_token_type!(CircEq);
-    decl_token_type!(Excl);
-    decl_token_type!(AmpAmp);
-    decl_token_type!(VerbarVerbar);
-    decl_token_type!(Plus);
-    decl_token_type!(Minus);
-    decl_token_type!(Sol);
-    decl_token_type!(Percnt);
-    decl_token_type!(PlusEq);
-    decl_token_type!(MinusEq);
-    decl_token_type!(AstEq);
-    decl_token_type!(SolEq);
-    decl_token_type!(PercntEq);
-    decl_token_type!(Gt);
-    decl_token_type!(Lt);
-    decl_token_type!(GtEq);
-    decl_token_type!(LtEq);
-    decl_token_type!(EqEq);
-    decl_token_type!(ExclEq);
-    decl_token_type!(Commat);
+    const fn empty_str() -> &'static str {
+        ""
+    }
+
+    const fn empty_slice<T>() -> &'static [T] {
+        &[]
+    }
+
+    decl_token_type!(Ident(Rc<str>), empty_str);
+    decl_token_type!(MacroDir(Rc<str>), empty_str);
+    decl_token_type!(StrLiteral(Rc<[u8]>), empty_slice);
+    decl_token_type!(IntLiteral(u64), u64::default);
+    decl_token_type!(FloatLiteral(f64), f64::default);
+    decl_token_type!(CharLiteral(u32), u32::default);
+    decl_token_type!(BoolLiteral(bool), bool::default);
+    decl_token_type!(UnreservedPunct(Rc<str>), empty_str);
+    decl_token_type!(Mut, "Token![mut]");
+    decl_token_type!(Struct, "Token![struct]");
+    decl_token_type!(Union, "Token![union]");
+    decl_token_type!(Enum, "Token![enum]");
+    decl_token_type!(Typealias, "Token![typealias]");
+    decl_token_type!(Type, "Token![type]");
+    decl_token_type!(If, "Token![if]");
+    decl_token_type!(Loop, "Token![loop]");
+    decl_token_type!(While, "Token![while]");
+    decl_token_type!(Return, "Token![return]");
+    decl_token_type!(Break, "Token![break]");
+    decl_token_type!(Continue, "Token![continue]");
+    decl_token_type!(ParenL, "ParenL");
+    decl_token_type!(ParenR, "ParenR");
+    decl_token_type!(BracketL, "BracketL");
+    decl_token_type!(BracketR, "BracketR");
+    decl_token_type!(BraceL, "BraceL");
+    decl_token_type!(BraceR, "BraceR");
+    decl_token_type!(Comma, "Token![,]");
+    decl_token_type!(Period, "Token![.]");
+    decl_token_type!(Eq, "Token![=]");
+    decl_token_type!(ColonEq, "Token![:=]");
+    decl_token_type!(Colon, "Token![:]");
+    decl_token_type!(ColonColon, "Token![::]");
+    decl_token_type!(Ast, "Token![*]");
+    decl_token_type!(Tilde, "Token![~]");
+    decl_token_type!(Amp, "Token![&]");
+    decl_token_type!(Verbar, "Token![|]");
+    decl_token_type!(Circ, "Token![^]");
+    decl_token_type!(GtGt, "Token![>>]");
+    decl_token_type!(LtLt, "Token![<<]");
+    decl_token_type!(GtGtEq, "Token![>>=]");
+    decl_token_type!(LtLtEq, "Token![<<=]");
+    decl_token_type!(AmpEq, "Token![&=]");
+    decl_token_type!(VerbarEq, "Token![|=]");
+    decl_token_type!(CircEq, "Token![^=]");
+    decl_token_type!(Excl, "Token![~]");
+    decl_token_type!(AmpAmp, "Token![&&]");
+    decl_token_type!(VerbarVerbar, "Token![||]");
+    decl_token_type!(Plus, "Token![+]");
+    decl_token_type!(Minus, "Token![-]");
+    decl_token_type!(Sol, "Token![/]");
+    decl_token_type!(Percnt, "Token![%]");
+    decl_token_type!(PlusEq, "Token![+=]");
+    decl_token_type!(MinusEq, "Token![-=]");
+    decl_token_type!(AstEq, "Token![*=]");
+    decl_token_type!(SolEq, "Token![/=]");
+    decl_token_type!(PercntEq, "Token![%=]");
+    decl_token_type!(Gt, "Token![>]");
+    decl_token_type!(Lt, "Token![<]");
+    decl_token_type!(GtEq, "Token![>=]");
+    decl_token_type!(LtEq, "Token![<=]");
+    decl_token_type!(EqEq, "Token![==]");
+    decl_token_type!(ExclEq, "Token![!=]");
+    decl_token_type!(Arrow, "Token![->]");
+    decl_token_type!(Commat, "Token![@]");
 
     #[allow(unused)]
     pub macro Token {
@@ -243,6 +268,7 @@ pub mod tokens {
         [<=] => { LtEq },
         [==] => { EqEq },
         [!=] => { ExclEq },
+        [->] => { Arrow },
         [@] => { Commat },
     }
 }

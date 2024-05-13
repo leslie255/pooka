@@ -1,20 +1,80 @@
 use std::{
+    fmt::{self, Debug},
     ops::{Deref, DerefMut, Range},
     rc::Rc,
 };
 
 use crate::source_str::SourceIndex;
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Clone, PartialEq, Eq)]
 pub struct Span {
     pub path: Option<Rc<str>>,
     pub range: Option<Range<SourceIndex>>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+impl Span {
+    pub fn new(path: Option<Rc<str>>, range: Option<Range<SourceIndex>>) -> Self {
+        Self { path, range }
+    }
+}
+
+pub macro span {
+    (None , None) => {
+        Span {
+            path: None,
+            range: None,
+        }
+    },
+    (None, $range:expr) => {
+        Span {
+            path: None,
+            range: Some($range),
+        }
+    },
+    ($path:expr , None) => {
+        Span {
+            path: Some($path),
+            range: None,
+        }
+    },
+    ($path:expr , $range:expr $(,)?) => {
+        Span {
+            path: Some($path),
+            range: Some($range),
+        }
+    },
+}
+
+impl Debug for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (&self.range, &self.path) {
+            (None, None) => write!(f, "(unknown span)"),
+            (None, Some(path)) => write!(f, "(? @ {path:?})"),
+            (Some(range), None) => {
+                write!(f, "({}..{} @ ?)", range.start.position, range.end.position)
+            }
+            (Some(range), Some(path)) => write!(
+                f,
+                "({}..{} @ {path:?})",
+                range.start.position, range.end.position
+            ),
+        }
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Eq)]
 pub struct Spanned<T> {
     pub inner: T,
     pub span: Span,
+}
+
+impl<T> Debug for Spanned<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Debug::fmt(&self.inner, f)
+    }
 }
 
 impl<T> Deref for Spanned<T> {

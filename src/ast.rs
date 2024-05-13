@@ -1,29 +1,21 @@
 use crate::{span::Spanned, token::tokens::*};
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Punctuated<T, P> {
     pub items: Vec<(Spanned<T>, Spanned<P>)>,
     pub last: Option<Box<Spanned<T>>>,
 }
 
-#[derive(Clone, PartialEq)]
-pub struct InBraces<T> {
-    pub left: Spanned<BraceL>,
+#[derive(Clone, PartialEq, Debug)]
+pub struct Surrounded<L, T, R> {
+    pub left: Spanned<L>,
     pub inner: Spanned<T>,
-    pub right: Spanned<BraceR>,
+    pub right: Spanned<R>,
 }
 
-#[derive(Clone, PartialEq)]
-pub struct InBrackets<T> {
-    pub inner: Spanned<T>
-}
-
-#[derive(Clone, PartialEq)]
-pub struct InParens<T> {
-    pub left: Spanned<ParenL>,
-    pub inner: Spanned<T>,
-    pub right: Spanned<ParenR>,
-}
+pub type InBraces<T> = Surrounded<BraceL, T, BracketR>;
+pub type InBrackets<T> = Surrounded<BracketL, T, BracketR>;
+pub type InParens<T> = Surrounded<ParenL, T, ParenR>;
 
 #[derive(Clone, PartialEq)]
 pub enum Pat {
