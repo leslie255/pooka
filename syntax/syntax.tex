@@ -175,13 +175,14 @@ A punctuation is a sequence of characters that satisify {\bf all} follow require
         \item Unicode Mathematical Operators
         \item Unicode Supplemental Mathematical Operators
     \end{itemize}
-    \item Is not a \verb|<paren>|
-    \item Is not an ASCII single quote or double quote
+    \item Does not contain \verb|{| \verb|}| \verb|[| \verb|]| \verb|(| \verb|)| \verb|,| \verb|;|
+    \item Does not start with an ASCII single quote or double quote
 \end{itemize}
 
 Some punctuations are reserved (\verb|<reserved punct>|), the rest are not (\verb|<unreserved punct>|).
-
 This distinction is made to make room in the syntax for a potential future expansion of custom operators, for this reason occurance of \verb|<unreserved punct>| in source code is considered invalid in the current version.
+
+Note that \verb|,| and \verb|;| are in its whole reserved punctuations, as two exceptions to the above requirements. The intend of this rule being that character sequences like \verb|,&| are treated as two tokens instead of one.
 
 \begin{itemize}
     \item \verb|,|

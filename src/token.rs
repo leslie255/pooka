@@ -40,6 +40,7 @@ pub enum Token {
     ColonEq,
     Colon,
     ColonColon,
+    Semicolon,
     Ast,
     Tilde,
     Amp,
@@ -93,6 +94,7 @@ pub macro Token {
     [:=] => { crate::token::tokens::ColonEq },
     [:] => { crate::token::tokens::Colon },
     [::] => { crate::token::tokens::ColonColon },
+    [;] => { crate::token::tokens::Semicolon },
     [*] => { crate::token::tokens::Ast },
     [~] => { crate::token::tokens::Tilde },
     [&] => { crate::token::tokens::Amp },
@@ -145,16 +147,6 @@ pub mod tokens {
                     self.to_token().to_spanned(args.0)
                 }
             }
-            impl FnMut<(Span,)> for $name {
-                extern "rust-call" fn call_mut(&mut self, args: (Span,)) -> Self::Output {
-                    self.call_once(args)
-                }
-            }
-            impl Fn<(Span,)> for $name {
-                extern "rust-call" fn call(&self, args: (Span,)) -> Self::Output {
-                    self.call_once(args)
-                }
-            }
             impl Debug for $name {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                     write!(f, $debug)
@@ -178,16 +170,6 @@ pub mod tokens {
                 type Output = Spanned<Token>;
                 extern "rust-call" fn call_once(self, args: (Span,)) -> Self::Output {
                     self.to_token().to_spanned(args.0)
-                }
-            }
-            impl FnMut<(Span,)> for $name {
-                extern "rust-call" fn call_mut(&mut self, args: (Span,)) -> Self::Output {
-                    self.call_once(args)
-                }
-            }
-            impl Fn<(Span,)> for $name {
-                extern "rust-call" fn call(&self, args: (Span,)) -> Self::Output {
-                    self.call_once(args)
                 }
             }
             impl Debug for $name {
@@ -238,6 +220,7 @@ pub mod tokens {
     decl_token_type!(ColonEq, "Token![:=]");
     decl_token_type!(Colon, "Token![:]");
     decl_token_type!(ColonColon, "Token![::]");
+    decl_token_type!(Semicolon, "Token![;]");
     decl_token_type!(Ast, "Token![*]");
     decl_token_type!(Tilde, "Token![~]");
     decl_token_type!(Amp, "Token![&]");

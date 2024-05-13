@@ -45,11 +45,20 @@ pub enum Pat {
     Tuple(TuplePat),
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Ty {
     Typename(Ident),
-    Ptr(Spanned<Mutness>, Box<Spanned<Ty>>),
-    SlicePtr(Spanned<Mutness>, Box<Ty>),
+    Ptr {
+        amp: Spanned<Token![&]>,
+        mut_: Spanned<Mutness>,
+        child: Box<Spanned<Ty>>,
+    },
+    SlicePtr {
+        amp: Spanned<Token![&]>,
+        mut_: Spanned<Mutness>,
+        child: Box<Spanned<InBrackets<Ty>>>,
+    },
+    Tuple(InParens<Punctuated<Ty, Token![,]>>),
     Struct {
         struct_: Spanned<Token![struct]>,
         fields: Spanned<InBraces<Punctuated<PatTy, Token![,]>>>,
@@ -58,18 +67,23 @@ pub enum Ty {
         union_: Spanned<Token![union]>,
         fields: Spanned<InBraces<Punctuated<PatTy, Token![,]>>>,
     },
-    Enum(Spanned<Punctuated<PatTy, Token![,]>>),
+    Enum {
+        enum_: Spanned<Token![enum]>,
+        fields: Spanned<InBraces<Punctuated<EnumVariant, Token![,]>>>,
+    },
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct EnumVariant {
     pub name: Spanned<Ident>,
-    pub fields: Spanned<InParens<Punctuated<Ty, Token![,]>>>,
+    pub fields: Spanned<Option<InParens<Punctuated<Ty, Token![,]>>>>,
 }
 
 #[derive(Clone, PartialEq)]
 pub enum Expr {
+    Literal(Literal),
     Ident(Ident),
+    Tuple(Spanned<Punctuated<Expr, Token![,]>>),
 }
 
 #[derive(Clone, PartialEq)]

@@ -3,7 +3,7 @@ use std::{iter::Peekable, ops::Range, rc::Rc, str::Chars};
 use crate::{
     source_str::{SourceCharIndices, SourceIndex, SourceStr},
     span::{span, Spanned, ToSpanned},
-    token::Token,
+    token::{tokens, Token},
 };
 
 pub fn lex(path: Rc<str>, input: &str) -> Vec<Spanned<Token>> {
@@ -211,8 +211,8 @@ impl<'s> LexerState<'s> {
             (start, c) if is_ident_body(c) => {
                 let end = take_while(start, &mut self.chars, is_ident_body).unwrap_or(start);
                 let s = self.input.slice(start..end);
-                tokens
-                    .push(Token::Ident(s.into()).to_spanned(span!(self.path.clone(), start..end)));
+                let t = ident_or_keyword(s);
+                tokens.push(t.to_spanned(span!(self.path.clone(), start..end)));
                 Some(Ok(()))
             }
             (i, '@') => match self.chars.peek() {
@@ -230,8 +230,48 @@ impl<'s> LexerState<'s> {
                     Some(Ok(()))
                 }
             },
-            (start, c) if c.is_unicode_punctuation() => {
-                let end = take_while(start, &mut self.chars, char::is_unicode_punctuation).unwrap_or(start);
+            (start, '{') => {
+                let token = tokens::BraceL(span!(self.path.clone(), start..start));
+                tokens.push(token);
+                Some(Ok(()))
+            }
+            (start, '}') => {
+                let token = tokens::BraceR(span!(self.path.clone(), start..start));
+                tokens.push(token);
+                Some(Ok(()))
+            }
+            (start, '[') => {
+                let token = tokens::BracketL(span!(self.path.clone(), start..start));
+                tokens.push(token);
+                Some(Ok(()))
+            }
+            (start, ']') => {
+                let token = tokens::BracketR(span!(self.path.clone(), start..start));
+                tokens.push(token);
+                Some(Ok(()))
+            }
+            (start, '(') => {
+                let token = tokens::ParenL(span!(self.path.clone(), start..start));
+                tokens.push(token);
+                Some(Ok(()))
+            }
+            (start, ')') => {
+                let token = tokens::ParenR(span!(self.path.clone(), start..start));
+                tokens.push(token);
+                Some(Ok(()))
+            }
+            (start, ',') => {
+                let token = Token![,](span!(self.path.clone(), start..start));
+                tokens.push(token);
+                Some(Ok(()))
+            }
+            (start, ';') => {
+                let token = Token![;](span!(self.path.clone(), start..start));
+                tokens.push(token);
+                Some(Ok(()))
+            }
+            (start, c) if is_punct_body(c) => {
+                let end = take_while(start, &mut self.chars, is_punct_body).unwrap_or(start);
                 let s = self.input.slice(start..end);
                 let token = parse_puntuation(s);
                 tokens.push(token.to_spanned(span!(self.path.clone(), start..end)));
@@ -334,19 +374,32 @@ fn parse_puntuation(s: &str) -> Token {
 }
 
 fn is_ident_body(c: char) -> bool {
-    (c.is_alphanumeric())
+    c.is_alphanumeric()
         || c == '_'
         || c == '\''
         || unic_emoji_char::is_emoji(c)
         || unic_emoji_char::is_emoji_component(c)
 }
 
+fn is_punct_body(c: char) -> bool {
+    c.is_unicode_punct()
+        && c != '.'
+        && c != '{'
+        && c != '}'
+        && c != '['
+        && c != ']'
+        && c != '('
+        && c != ')'
+        && c != ','
+        && c != ';'
+}
+
 trait CharExtensions {
-    fn is_unicode_punctuation(self) -> bool;
+    fn is_unicode_punct(self) -> bool;
 }
 
 impl CharExtensions for char {
-    fn is_unicode_punctuation(self) -> bool {
+    fn is_unicode_punct(self) -> bool {
         self.is_ascii_punctuation()
             || unicode_blocks::GENERAL_PUNCTUATION.contains(self)
             || unicode_blocks::SUPPLEMENTAL_PUNCTUATION.contains(self)
@@ -464,5 +517,23 @@ fn parse_hex_digit(c: char) -> Option<u8> {
         'e' | 'E' => Some(14),
         'f' | 'F' => Some(15),
         _ => return None,
+    }
+}
+
+fn ident_or_keyword(s: &str) -> Token {
+    match s {
+        "mut" => Token::Mut,
+        "struct" => Token::Struct,
+        "union" => Token::Union,
+        "enum" => Token::Enum,
+        "typealias" => Token::Typealias,
+        "type" => Token::Type,
+        "if" => Token::If,
+        "loop" => Token::Loop,
+        "while" => Token::While,
+        "return" => Token::Return,
+        "break" => Token::Break,
+        "continue" => Token::Continue,
+        s => Token::Ident(s.into()),
     }
 }

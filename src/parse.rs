@@ -15,6 +15,7 @@ pub enum ParseError {
     UnexpectedEof,
     ExpectToken(Token),
     ExpectPat,
+    ExpectTy,
 }
 
 #[derive(Debug, Clone)]
@@ -104,8 +105,8 @@ where
     fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
         let left = L::parse(state)?;
         let right = R::parse(state)?;
-        let start: Option<SourceIndex> = find_span_start!(left, right);
-        let end: Option<SourceIndex> = find_span_end!(right, left);
+        let start = find_span_start!(left, right);
+        let end = find_span_end!(right, left);
         let span = Span::new(Some(state.path.clone()), join_range(start, end));
         return Ok((left, right).to_spanned(span));
     }
@@ -172,6 +173,91 @@ impl Parse for Pat {
         } else {
             Err(ParseError::ExpectPat.to_spanned(state.prev_span.clone()))
         }
+    }
+}
+
+impl Parse for Ty {
+    fn peek(state: &mut ParserState) -> bool {
+        Ident::peek(state)
+            || <Token![&]>::peek(state)
+            || <InParens<Punctuated<Ty, Token![,]>>>::peek(state)
+            || <Token![struct]>::peek(state)
+            || <Token![union]>::peek(state)
+            || <Token![enum]>::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        if Ident::peek(state) {
+            Ok(Ident::parse(state)?.map(Self::Typename))
+        } else if <Token![&]>::peek(state) {
+            let amp = <Token![&]>::parse(state)?;
+            let mut_ = Mutness::parse(state)?;
+            if Ty::peek(state) {
+                let child = Ty::parse(state)?;
+                let start = find_span_start!(amp, mut_, child);
+                let end = find_span_end!(child, mut_, amp);
+                let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                Ok(Self::Ptr {
+                    amp,
+                    mut_,
+                    child: Box::new(child),
+                }
+                .to_spanned(span))
+            } else if <InBrackets<Ty>>::peek(state) {
+                let child = <InBrackets<Ty>>::parse(state)?;
+                let start = find_span_start!(amp, mut_, child);
+                let end = find_span_end!(child, mut_, amp);
+                let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                Ok(Self::SlicePtr {
+                    amp,
+                    mut_,
+                    child: Box::new(child),
+                }
+                .to_spanned(span))
+            } else {
+                Err(ParseError::ExpectTy.to_spanned(state.prev_span.clone()))
+            }
+        } else if <InParens<Punctuated<Ty, Token![,]>>>::peek(state) {
+            Ok(<InParens<Punctuated<Ty, Token![,]>>>::parse(state)?.map(Self::Tuple))
+        } else if <Token![struct]>::peek(state) {
+            let struct_ = <Token![struct]>::parse(state)?;
+            let fields = <InBraces<Punctuated<PatTy, Token![,]>>>::parse(state)?;
+            let start = find_span_start!(struct_, fields);
+            let end = find_span_end!(fields, struct_);
+            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            Ok(Self::Struct { struct_, fields }.to_spanned(span))
+        } else if <Token![union]>::peek(state) {
+            let union_ = <Token![union]>::parse(state)?;
+            let fields = <InBraces<Punctuated<PatTy, Token![,]>>>::parse(state)?;
+            let start = find_span_start!(union_, fields);
+            let end = find_span_end!(fields, union_);
+            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            Ok(Self::Union { union_, fields }.to_spanned(span))
+        } else if <Token![enum]>::peek(state) {
+            let enum_ = <Token![enum]>::parse(state)?;
+            let fields = <InBraces<Punctuated<EnumVariant, Token![,]>>>::parse(state)?;
+            let start = find_span_start!(enum_, fields);
+            let end = find_span_end!(fields, enum_);
+            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            Ok(Self::Enum { enum_, fields }.to_spanned(span))
+        } else {
+            Err(ParseError::ExpectTy.to_spanned(state.prev_span.clone()))
+        }
+    }
+}
+
+impl Parse for EnumVariant {
+    fn peek(state: &mut ParserState) -> bool {
+        Ident::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let name = Ident::parse(state)?;
+        let fields = <Option<InParens<Punctuated<Ty, Token![,]>>>>::parse(state)?;
+        let start = find_span_start!(name, fields);
+        let end = find_span_end!(fields, name);
+        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        Ok(Self { name, fields }.to_spanned(span))
     }
 }
 

@@ -16,9 +16,12 @@ fn main() {
     use crate::ast::*;
     use parse::*;
     let path: Rc<str> = "source.pooka".into();
-    let src = "(a, b, c)";
+    let src = "&[i32]";
     let tokens = lex::lex(path.clone(), src);
+    for token in &tokens {
+        println!("{:?} @ {:?}", token, &token.span);
+    }
     let mut parser_state = ParserState::new(&tokens, path.clone());
-    let pat: Spanned<Pat> = Parse::parse(&mut parser_state).unwrap();
-    dbg!(pat);
+    let ty: Spanned<Ty> = Parse::parse(&mut parser_state).unwrap();
+    dbg!(ty);
 }
