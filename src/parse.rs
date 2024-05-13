@@ -3,14 +3,18 @@ use std::{iter::Peekable, ops::Range, rc::Rc, slice};
 use crate::{
     ast::*,
     source_str::SourceIndex,
-    span::{Span, Spanned, ToSpanned},
-    token::{tokens, Token, TokenTrait},
+    span::{span, Span, Spanned, ToSpanned},
+    token::{
+        tokens::{self, Ident},
+        Token, TokenTrait,
+    },
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseError {
     UnexpectedEof,
     ExpectToken(Token),
+    ExpectPat,
 }
 
 #[derive(Debug, Clone)]
@@ -61,7 +65,7 @@ where
 
     fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
         let mut self_ = Punctuated::<T, P> {
-            items: Vec::new(),
+            pairs: Vec::new(),
             last: None,
         };
         let mut start = None;
@@ -77,7 +81,7 @@ where
             }
             if P::peek(state) {
                 let punct = P::parse(state)?;
-                self_.items.push((item, punct));
+                self_.pairs.push((item, punct));
             } else {
                 self_.last = Some(Box::new(item));
                 break;
@@ -88,10 +92,9 @@ where
     }
 }
 
-impl<L, T, R> Parse for Surrounded<L, T, R>
+impl<L, R> Parse for (Spanned<L>, Spanned<R>)
 where
     L: Parse,
-    T: Parse,
     R: Parse,
 {
     fn peek(state: &mut ParserState) -> bool {
@@ -100,12 +103,75 @@ where
 
     fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
         let left = L::parse(state)?;
-        let inner = T::parse(state)?;
         let right = R::parse(state)?;
-        let start: Option<SourceIndex> = find_span_start!(left, inner, right);
-        let end: Option<SourceIndex> = find_span_end!(right, inner, left);
+        let start: Option<SourceIndex> = find_span_start!(left, right);
+        let end: Option<SourceIndex> = find_span_end!(right, left);
         let span = Span::new(Some(state.path.clone()), join_range(start, end));
-        return Ok(Self { left, inner, right }.to_spanned(span));
+        return Ok((left, right).to_spanned(span));
+    }
+}
+
+impl<T> Parse for Option<T>
+where
+    T: Parse,
+{
+    fn peek(state: &mut ParserState) -> bool {
+        T::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        if T::peek(state) {
+            T::parse(state).map(|x| x.map(Some))
+        } else {
+            Ok(None.to_spanned(span!(None, None)))
+        }
+    }
+}
+
+impl<L, C, R> Parse for (Spanned<L>, Spanned<C>, Spanned<R>)
+where
+    L: Parse,
+    C: Parse,
+    R: Parse,
+{
+    fn peek(state: &mut ParserState) -> bool {
+        L::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let left = L::parse(state)?;
+        let center = C::parse(state)?;
+        let right = R::parse(state)?;
+        let start: Option<SourceIndex> = find_span_start!(left, center, right);
+        let end: Option<SourceIndex> = find_span_end!(right, center, left);
+        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        return Ok((left, center, right).to_spanned(span));
+    }
+}
+
+impl Parse for Pat {
+    fn peek(state: &mut ParserState) -> bool {
+        Mutness::peek(state) || Ident::peek(state) || TuplePat::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        if Mutness::peek(state) {
+            let mutness = Mutness::parse(state)?;
+            let ident = Ident::parse(state)?;
+            let start = find_span_start!(mutness, ident);
+            let end = find_span_end!(ident, mutness);
+            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            Ok(Self::Binding(mutness, ident).to_spanned(span))
+        } else if Ident::peek(state) {
+            let ident = Ident::parse(state)?;
+            let span = ident.span.clone();
+            Ok(Self::Binding(None.to_spanned(Span::default()), ident).to_spanned(span))
+        } else if TuplePat::peek(state) {
+            let tuple_pat = TuplePat::parse(state)?;
+            Ok(tuple_pat.map(|tuple_pat| Self::Tuple(tuple_pat)))
+        } else {
+            Err(ParseError::ExpectPat.to_spanned(state.prev_span.clone()))
+        }
     }
 }
 
@@ -222,5 +288,9 @@ macro impl_parse_for_token {
 }
 
 impl_parse_for_token! {
-    Ident(_), MacroDir(_), StrLiteral(_), IntLiteral(_), FloatLiteral(_), CharLiteral(_), BoolLiteral(_), UnreservedPunct(_), Mut, Struct, Union, Enum, Typealias, Type, If, Loop, While, Return, Break, Continue, ParenL, ParenR, BracketL, BracketR, BraceL, BraceR, Comma, Period, Eq, ColonEq, Colon, ColonColon, Ast, Tilde, Amp, Verbar, Circ, GtGt, LtLt, GtGtEq, LtLtEq, AmpEq, VerbarEq, CircEq, Excl, AmpAmp, VerbarVerbar, Plus, Minus, Sol, Percnt, PlusEq, MinusEq, AstEq, SolEq, PercntEq, Gt, Lt, GtEq, LtEq, EqEq, ExclEq, Arrow, Commat,
+    Ident(_), MacroDir(_), StrLiteral(_), IntLiteral(_), FloatLiteral(_), CharLiteral(_), BoolLiteral(_),
+    UnreservedPunct(_), Mut, Struct, Union, Enum, Typealias, Type, If, Loop, While, Return, Break, Continue, ParenL,
+    ParenR, BracketL, BracketR, BraceL, BraceR, Comma, Period, Eq, ColonEq, Colon, ColonColon, Ast, Tilde, Amp, Verbar,
+    Circ, GtGt, LtLt, GtGtEq, LtLtEq, AmpEq, VerbarEq, CircEq, Excl, AmpAmp, VerbarVerbar, Plus, Minus, Sol, Percnt,
+    PlusEq, MinusEq, AstEq, SolEq, PercntEq, Gt, Lt, GtEq, LtEq, EqEq, ExclEq, Arrow, Commat,
 }

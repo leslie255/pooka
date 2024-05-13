@@ -1,33 +1,48 @@
-use crate::{span::Spanned, token::tokens::*};
+use std::fmt::{self, Debug};
 
-#[derive(Clone, PartialEq, Debug)]
+use crate::{
+    span::Spanned,
+    token::{tokens::*, Token},
+};
+
+#[derive(Clone, PartialEq)]
 pub struct Punctuated<T, P> {
-    pub items: Vec<(Spanned<T>, Spanned<P>)>,
+    pub pairs: Vec<(Spanned<T>, Spanned<P>)>,
     pub last: Option<Box<Spanned<T>>>,
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub struct Surrounded<L, T, R> {
-    pub left: Spanned<L>,
-    pub inner: Spanned<T>,
-    pub right: Spanned<R>,
+impl<T, P> Debug for Punctuated<T, P>
+where
+    T: Debug,
+    P: Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut list = f.debug_list();
+        for (x, p) in &self.pairs {
+            list.entry(x);
+            list.entry(p);
+        }
+        self.last.as_ref().inspect(|x| {
+            list.entry(x);
+        });
+        list.finish()
+    }
 }
 
-pub type InBraces<T> = Surrounded<BraceL, T, BracketR>;
-pub type InBrackets<T> = Surrounded<BracketL, T, BracketR>;
-pub type InParens<T> = Surrounded<ParenL, T, ParenR>;
+pub type InBraces<T> = (Spanned<BraceL>, Spanned<T>, Spanned<BracketR>);
+pub type InBrackets<T> = (Spanned<BracketL>, Spanned<T>, Spanned<BracketR>);
+pub type InParens<T> = (Spanned<ParenL>, Spanned<T>, Spanned<ParenR>);
 
-#[derive(Clone, PartialEq)]
+pub type PatTy = (Spanned<Pat>, Spanned<Token![:]>, Spanned<Ty>);
+
+pub type Mutness = Option<Token![mut]>;
+
+pub type TuplePat = InParens<Punctuated<Pat, Token![,]>>;
+
+#[derive(Clone, PartialEq, Debug)]
 pub enum Pat {
     Binding(Spanned<Mutness>, Spanned<Ident>),
-    Tuple(Spanned<InParens<Punctuated<Pat, Token![,]>>>),
-}
-
-#[derive(Clone, PartialEq)]
-pub struct PatTy {
-    pub pat: Spanned<Pat>,
-    pub colon: Spanned<Token![:]>,
-    pub ty: Spanned<Ty>,
+    Tuple(TuplePat),
 }
 
 #[derive(Clone, PartialEq)]
@@ -46,16 +61,10 @@ pub enum Ty {
     Enum(Spanned<Punctuated<PatTy, Token![,]>>),
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum Mutness {
-    Immutable,
-    Mutable,
-}
-
 #[derive(Clone, PartialEq)]
 pub struct EnumVariant {
     pub name: Spanned<Ident>,
-    pub fields: Spanned<InParens<Punctuated<Ty, Token![,]>>>
+    pub fields: Spanned<InParens<Punctuated<Ty, Token![,]>>>,
 }
 
 #[derive(Clone, PartialEq)]

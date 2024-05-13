@@ -13,7 +13,7 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn new(path: Option<Rc<str>>, range: Option<Range<SourceIndex>>) -> Self {
+    pub const fn new(path: Option<Rc<str>>, range: Option<Range<SourceIndex>>) -> Self {
         Self { path, range }
     }
 }
@@ -66,6 +66,13 @@ impl Debug for Span {
 pub struct Spanned<T> {
     pub inner: T,
     pub span: Span,
+}
+
+impl<T> Spanned<T> {
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U> {
+        let span = self.span;
+        f(self.inner).to_spanned(span)
+    }
 }
 
 impl<T> Debug for Spanned<T>
