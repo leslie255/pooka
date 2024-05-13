@@ -55,6 +55,46 @@ pub trait Parse: Sized {
     fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>>;
 }
 
+impl<L, R> Parse for (Spanned<L>, Spanned<R>)
+where
+    L: Parse,
+    R: Parse,
+{
+    fn peek(state: &mut ParserState) -> bool {
+        L::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let left = L::parse(state)?;
+        let right = R::parse(state)?;
+        let start = find_span_start!(left, right);
+        let end = find_span_end!(right, left);
+        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        return Ok((left, right).to_spanned(span));
+    }
+}
+
+impl<L, C, R> Parse for (Spanned<L>, Spanned<C>, Spanned<R>)
+where
+    L: Parse,
+    C: Parse,
+    R: Parse,
+{
+    fn peek(state: &mut ParserState) -> bool {
+        L::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let left = L::parse(state)?;
+        let center = C::parse(state)?;
+        let right = R::parse(state)?;
+        let start: Option<SourceIndex> = find_span_start!(left, center, right);
+        let end: Option<SourceIndex> = find_span_end!(right, center, left);
+        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        return Ok((left, center, right).to_spanned(span));
+    }
+}
+
 impl<T, P> Parse for Punctuated<T, P>
 where
     T: Parse,
@@ -93,25 +133,6 @@ where
     }
 }
 
-impl<L, R> Parse for (Spanned<L>, Spanned<R>)
-where
-    L: Parse,
-    R: Parse,
-{
-    fn peek(state: &mut ParserState) -> bool {
-        L::peek(state)
-    }
-
-    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
-        let left = L::parse(state)?;
-        let right = R::parse(state)?;
-        let start = find_span_start!(left, right);
-        let end = find_span_end!(right, left);
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
-        return Ok((left, right).to_spanned(span));
-    }
-}
-
 impl<T> Parse for Option<T>
 where
     T: Parse,
@@ -126,27 +147,6 @@ where
         } else {
             Ok(None.to_spanned(span!(None, None)))
         }
-    }
-}
-
-impl<L, C, R> Parse for (Spanned<L>, Spanned<C>, Spanned<R>)
-where
-    L: Parse,
-    C: Parse,
-    R: Parse,
-{
-    fn peek(state: &mut ParserState) -> bool {
-        L::peek(state)
-    }
-
-    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
-        let left = L::parse(state)?;
-        let center = C::parse(state)?;
-        let right = R::parse(state)?;
-        let start: Option<SourceIndex> = find_span_start!(left, center, right);
-        let end: Option<SourceIndex> = find_span_end!(right, center, left);
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
-        return Ok((left, center, right).to_spanned(span));
     }
 }
 

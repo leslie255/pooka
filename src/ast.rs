@@ -29,7 +29,7 @@ where
     }
 }
 
-pub type InBraces<T> = (Spanned<BraceL>, Spanned<T>, Spanned<BracketR>);
+pub type InBraces<T> = (Spanned<BraceL>, Spanned<T>, Spanned<BraceR>);
 pub type InBrackets<T> = (Spanned<BracketL>, Spanned<T>, Spanned<BracketR>);
 pub type InParens<T> = (Spanned<ParenL>, Spanned<T>, Spanned<ParenR>);
 

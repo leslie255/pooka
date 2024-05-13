@@ -16,7 +16,7 @@ fn main() {
     use crate::ast::*;
     use parse::*;
     let path: Rc<str> = "source.pooka".into();
-    let src = "&[i32]";
+    let src = "struct {x: i32, y: i32}";
     let tokens = lex::lex(path.clone(), src);
     for token in &tokens {
         println!("{:?} @ {:?}", token, &token.span);
