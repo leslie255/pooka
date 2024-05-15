@@ -411,7 +411,6 @@ impl Parse for VarDeclOrExpr {
                 }
             }
             Token::Mut => {
-                state.next();
                 VarDecl::parse(state).map(|x| x.map(Self::VarDecl))
             }
             Token::ParenL => todo!(),

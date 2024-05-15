@@ -14,7 +14,7 @@ fn main() {
     use crate::ast::*;
     use parse::*;
     let path: Rc<str> = "source.pooka".into();
-    let src = "x : i32 = 0;";
+    let src = "mut x : i32 = 0;";
     let tokens = lex::lex(path.clone(), src);
     let mut parser_state = ParserState::new(&tokens, path.clone());
     let parse_result = parse::<Stmt>(&mut parser_state);
