@@ -3,19 +3,32 @@ use std::{iter::Peekable, ops::Range, rc::Rc, slice};
 use crate::{
     ast::*,
     source_str::SourceIndex,
-    span::{span, Span, Spanned, ToSpanned},
+    span::{span, spanned_into, Span, Spanned, ToSpanned},
     token::{
-        tokens::{self, Ident},
+        tokens::{
+            self, BoolLiteral, BraceL, BraceR, CharLiteral, FloatLiteral, Ident, IntLiteral,
+            StrLiteral,
+        },
         Token, TokenTrait,
     },
 };
+
+pub fn parse<T: Parse>(parser_state: &mut ParserState) -> Result<Spanned<T>, Spanned<ParseError>> {
+    T::parse(parser_state)
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseError {
     UnexpectedEof,
     ExpectToken(Token),
+    ExpectColonEq,
+    ExpectVarDecl,
     ExpectPat,
     ExpectTy,
+    ExpectLiteral,
+    ExpectExpr,
+    ExpectStmt,
+    InvalidPattern,
 }
 
 #[derive(Debug, Clone)]
@@ -41,12 +54,30 @@ impl<'a> ParserState<'a> {
         }
     }
     fn peek(&mut self) -> Option<&Spanned<Token>> {
-        self.tokens.peek().copied()
+        let &t = self.tokens.peek()?;
+        self.prev_span = t.span.clone();
+        return Some(t);
     }
     fn next(&mut self) -> Option<&Spanned<Token>> {
         let t = self.tokens.next()?;
         self.prev_span = t.span.clone();
         return Some(t);
+    }
+    fn peek_or_eof_error(&mut self) -> Result<&Spanned<Token>, Spanned<ParseError>> {
+        let &t = self
+            .tokens
+            .peek()
+            .ok_or_else(|| ParseError::UnexpectedEof.to_spanned(self.prev_span.clone()))?;
+        self.prev_span = t.span.clone();
+        return Ok(t);
+    }
+    fn next_or_eof_error(&mut self) -> Result<&Spanned<Token>, Spanned<ParseError>> {
+        let t = self
+            .tokens
+            .next()
+            .ok_or_else(|| ParseError::UnexpectedEof.to_spanned(self.prev_span.clone()))?;
+        self.prev_span = t.span.clone();
+        return Ok(t);
     }
 }
 
@@ -116,10 +147,10 @@ where
                 break;
             }
             let item = T::parse(state)?;
-            item.span.range.clone().inspect(|i| end = Some(i.end));
-            if start.is_none() {
-                item.span.range.clone().inspect(|i| start = Some(i.start));
-            }
+            item.span.range.clone().inspect(|i| {
+                start.get_or_insert(i.start);
+                end = Some(i.end);
+            });
             if P::peek(state) {
                 let punct = P::parse(state)?;
                 self_.pairs.push((item, punct));
@@ -261,6 +292,312 @@ impl Parse for EnumVariant {
     }
 }
 
+impl Parse for Literal {
+    fn peek(state: &mut ParserState) -> bool {
+        StrLiteral::peek(state)
+            || IntLiteral::peek(state)
+            || FloatLiteral::peek(state)
+            || CharLiteral::peek(state)
+            || BoolLiteral::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        if StrLiteral::peek(state) {
+            StrLiteral::parse(state).map(|x| x.map(Self::StrLiteral))
+        } else if IntLiteral::peek(state) {
+            IntLiteral::parse(state).map(|x| x.map(Self::IntLiteral))
+        } else if FloatLiteral::peek(state) {
+            FloatLiteral::parse(state).map(|x| x.map(Self::FloatLiteral))
+        } else if CharLiteral::peek(state) {
+            CharLiteral::parse(state).map(|x| x.map(Self::CharLiteral))
+        } else if BoolLiteral::peek(state) {
+            BoolLiteral::parse(state).map(|x| x.map(Self::BoolLiteral))
+        } else {
+            Err(ParseError::ExpectLiteral.to_spanned(state.prev_span.clone()))
+        }
+    }
+}
+
+impl Parse for Expr {
+    fn peek(state: &mut ParserState) -> bool {
+        Literal::peek(state) || Ident::peek(state) || TupleExpr::peek(state) || Block::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        if Literal::peek(state) {
+            Literal::parse(state).map(|x| x.map(Self::Literal))
+        } else if Ident::peek(state) {
+            Ident::parse(state).map(|x| x.map(Self::Ident))
+        } else if TupleExpr::peek(state) {
+            TupleExpr::parse(state).map(|x| x.map(Self::Tuple))
+        } else if Block::peek(state) {
+            Block::parse(state).map(|x| x.map(Self::Block))
+        } else {
+            Err(ParseError::ExpectExpr.to_spanned(state.prev_span.clone()))
+        }
+    }
+}
+
+impl Parse for Stmt {
+    fn peek(state: &mut ParserState) -> bool {
+        <Token![;]>::peek(state) || Expr::peek(state) || Block::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        if <Token![;]>::peek(state) {
+            <Token![;]>::parse(state).map(|x| x.map(Self::Empty))
+        } else if VarDeclOrExpr::peek(state) {
+            let var_decl_or_expr = VarDeclOrExpr::parse(state)?;
+            let semicolon = <Token![;]>::parse(state)?;
+            let start = find_span_start!(var_decl_or_expr, semicolon);
+            let end = find_span_end!(var_decl_or_expr, semicolon);
+            let span_ = var_decl_or_expr.span;
+            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            let stmt = match var_decl_or_expr.inner {
+                VarDeclOrExpr::VarDecl(x) => Stmt::VarDecl(x.to_spanned(span_), semicolon),
+                VarDeclOrExpr::Expr(x) => Stmt::Expr(x.to_spanned(span_), semicolon),
+            };
+            Ok(stmt.to_spanned(span))
+        } else if Block::peek(state) {
+            Block::parse(state).map(|x| x.map(Self::Block))
+        } else {
+            Err(ParseError::ExpectStmt.to_spanned(state.prev_span.clone()))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum VarDeclOrExpr {
+    VarDecl(VarDecl),
+    Expr(Expr),
+}
+
+impl From<Expr> for VarDeclOrExpr {
+    fn from(v: Expr) -> Self {
+        Self::Expr(v)
+    }
+}
+
+impl From<VarDecl> for VarDeclOrExpr {
+    fn from(v: VarDecl) -> Self {
+        Self::VarDecl(v)
+    }
+}
+
+impl Parse for VarDeclOrExpr {
+    fn peek(state: &mut ParserState) -> bool {
+        Pat::peek(state) || Expr::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let t = state.peek_or_eof_error()?;
+        match t.inner {
+            Token::Ident(_) => {
+                let expr = Expr::parse(state)?;
+                if <Token![:]>::peek(state) || <Token![:=]>::peek(state) {
+                    let lhs = match expr.inner {
+                        Expr::Ident(s) => {
+                            Pat::Binding(Spanned::default(), s.to_spanned(expr.span.clone()))
+                                .to_spanned(expr.span)
+                        }
+                        Expr::Tuple(_) => unreachable!(),
+                        _ => {
+                            return Err(ParseError::InvalidPattern.to_spanned(expr.span));
+                        }
+                    };
+                    Ok(spanned_into(VarDecl::parse_after_lhs(lhs, state)?))
+                } else {
+                    Ok(spanned_into(expr))
+                }
+            }
+            Token::Mut => {
+                state.next();
+                VarDecl::parse(state).map(|x| x.map(Self::VarDecl))
+            }
+            Token::ParenL => todo!(),
+            _ => Expr::parse(state).map(|x| x.map(Self::Expr)),
+        }
+    }
+}
+
+impl ColonEq_ {
+    pub fn two_tokens(
+        path: Rc<str>,
+        colon: Spanned<Token![:]>,
+        eq: Spanned<Token![=]>,
+    ) -> Spanned<Self> {
+        let start = find_span_start!(colon, eq);
+        let end = find_span_start!(eq, colon);
+        let span = Span::new(Some(path.clone()), join_range(start, end));
+        Self::TwoTokens(colon, eq).to_spanned(span)
+    }
+}
+
+impl VarDecl {
+    fn parse_after_lhs(
+        lhs: Spanned<Pat>,
+        state: &mut ParserState,
+    ) -> Result<Spanned<VarDecl>, Spanned<ParseError>> {
+        if <Token![:=]>::peek(state) {
+            let colon_eq = <Token![:=]>::parse(state)?.map(ColonEq_::OneToken);
+            let rhs = Expr::parse(state)?;
+            let start = find_span_start!(lhs, colon_eq, rhs);
+            let end = find_span_end!(rhs, colon_eq, lhs);
+            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            Ok(Self::WithoutType { lhs, colon_eq, rhs }.to_spanned(span))
+        } else if <Token![:]>::peek(state) {
+            let colon = <Token![:]>::parse(state)?;
+            if <Token![=]>::peek(state) {
+                let eq = <Token![=]>::parse(state)?;
+                let rhs = Expr::parse(state)?;
+                let start = find_span_start!(lhs, colon, eq, rhs);
+                let end = find_span_end!(rhs, colon, eq, lhs);
+                let colon_eq = ColonEq_::two_tokens(state.path.clone(), colon, eq);
+                let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                Ok(Self::WithoutType { lhs, colon_eq, rhs }.to_spanned(span))
+            } else {
+                let ty = Ty::parse(state)?;
+                let eq = <Token![=]>::parse(state)?;
+                let rhs = Expr::parse(state)?;
+                let start = find_span_start!(lhs, colon, ty, eq, rhs);
+                let end = find_span_end!(rhs, colon, ty, eq, lhs);
+                let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                Ok(Self::WithType {
+                    lhs,
+                    colon,
+                    ty,
+                    eq,
+                    rhs,
+                }
+                .to_spanned(span))
+            }
+        } else {
+            Err(ParseError::ExpectToken(Token![:].to_token()).to_spanned(lhs.span))
+        }
+    }
+}
+
+impl Parse for VarDecl {
+    fn peek(state: &mut ParserState) -> bool {
+        Pat::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let lhs = Pat::parse(state)?;
+        Self::parse_after_lhs(lhs, state)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum StmtOrTail {
+    Stmt(Stmt),
+    Tail(Expr),
+}
+
+impl From<Expr> for StmtOrTail {
+    fn from(v: Expr) -> Self {
+        Self::Tail(v)
+    }
+}
+
+impl From<Stmt> for StmtOrTail {
+    fn from(v: Stmt) -> Self {
+        Self::Stmt(v)
+    }
+}
+
+impl Parse for StmtOrTail {
+    fn peek(state: &mut ParserState) -> bool {
+        Expr::peek(state) || Stmt::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        if VarDeclOrExpr::peek(state) {
+            let var_decl_or_expr = VarDeclOrExpr::parse(state)?;
+            match var_decl_or_expr.inner {
+                VarDeclOrExpr::VarDecl(var_decl) => {
+                    let var_decl = var_decl.to_spanned(var_decl_or_expr.span);
+                    let semicolon = <Token![;]>::parse(state)?;
+                    let start = find_span_start!(var_decl, semicolon);
+                    let end = find_span_end!(var_decl, semicolon);
+                    let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                    let stmt = Stmt::VarDecl(var_decl, semicolon);
+                    Ok(Self::Stmt(stmt).to_spanned(span))
+                }
+                VarDeclOrExpr::Expr(expr) => {
+                    let expr = expr.to_spanned(var_decl_or_expr.span);
+                    if <Token![;]>::peek(state) {
+                        let semicolon = <Token![;]>::parse(state)?;
+                        let start = find_span_start!(expr, semicolon);
+                        let end = find_span_end!(expr, semicolon);
+                        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                        Ok(Self::Stmt(Stmt::Expr(expr, semicolon)).to_spanned(span))
+                    } else {
+                        Ok(expr.map(Self::Tail))
+                    }
+                }
+            }
+        } else if Stmt::peek(state) {
+            Stmt::parse(state).map(|x| x.map(Self::Stmt))
+        } else {
+            Err(ParseError::ExpectStmt.to_spanned(state.prev_span.clone()))
+        }
+    }
+}
+
+impl Parse for Block {
+    fn peek(state: &mut ParserState) -> bool {
+        BraceL::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let brace_l = BraceL::parse(state)?;
+        let (mut start, mut end) = match brace_l.span.range.clone() {
+            Some(range) => (Some(range.start), Some(range.end)),
+            None => (None, None),
+        };
+        let mut stmts = Vec::<Spanned<Stmt>>::new();
+        let mut tail = Option::<Box<Spanned<Expr>>>::None;
+        loop {
+            if !Stmt::peek(state) {
+                break;
+            }
+            let stmt_or_tail = StmtOrTail::parse(state)?;
+            let span = stmt_or_tail.span;
+            match stmt_or_tail.inner {
+                StmtOrTail::Stmt(stmt) => {
+                    span.range.clone().inspect(|i| {
+                        start.get_or_insert(i.start);
+                        end = Some(i.end);
+                    });
+                    stmts.push(stmt.to_spanned(span));
+                }
+                StmtOrTail::Tail(expr) => {
+                    span.range.clone().inspect(|i| {
+                        start.get_or_insert(i.start);
+                        end = Some(i.end);
+                    });
+                    tail = Some(Box::new(expr.to_spanned(span)));
+                    break;
+                }
+            }
+        }
+        let brace_r = BraceR::parse(state)?;
+        brace_r.span.range.clone().inspect(|i| {
+            start.get_or_insert(i.start);
+            end = Some(i.end);
+        });
+        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        Ok(Self {
+            brace_l,
+            stmts,
+            brace_r,
+            tail,
+        }
+        .to_spanned(span))
+    }
+}
+
 macro find_span_start {
     ($withspan:expr) => {
         if let Some(range) = $withspan.span.range.clone() {
@@ -375,8 +712,8 @@ macro impl_parse_for_token {
 
 impl_parse_for_token! {
     Ident(_), MacroDir(_), StrLiteral(_), IntLiteral(_), FloatLiteral(_), CharLiteral(_), BoolLiteral(_),
-    UnreservedPunct(_), Mut, Struct, Union, Enum, Typealias, Type, If, Loop, While, Return, Break, Continue, ParenL,
-    ParenR, BracketL, BracketR, BraceL, BraceR, Comma, Period, Eq, ColonEq, Colon, ColonColon, Ast, Tilde, Amp, Verbar,
+    UnreservedPunct(_), Mut, Struct, Union, Enum, Typealias, Type, If, Else, Loop, While, Return, Break, Continue, ParenL,
+    ParenR, BracketL, BracketR, BraceL, BraceR, Comma, Period, Eq, ColonEq, Colon, ColonColon, Semicolon, Ast, Tilde, Amp, Verbar,
     Circ, GtGt, LtLt, GtGtEq, LtLtEq, AmpEq, VerbarEq, CircEq, Excl, AmpAmp, VerbarVerbar, Plus, Minus, Sol, Percnt,
     PlusEq, MinusEq, AstEq, SolEq, PercntEq, Gt, Lt, GtEq, LtEq, EqEq, ExclEq, Arrow, Commat,
 }

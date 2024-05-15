@@ -22,6 +22,7 @@ pub enum Token {
     Typealias,
     Type,
     If,
+    Else,
     Loop,
     While,
     Return,
@@ -83,6 +84,7 @@ pub macro Token {
     [typealias] => { crate::token::tokens::Typealias },
     [type] => { crate::token::tokens::Type },
     [if] => { crate::token::tokens::If },
+    [else] => { crate::token::tokens::Else },
     [loop] => { crate::token::tokens::Loop },
     [while] => { crate::token::tokens::While },
     [return] => { crate::token::tokens::Return },
@@ -203,6 +205,7 @@ pub mod tokens {
     decl_token_type!(Typealias, "Token![typealias]");
     decl_token_type!(Type, "Token![type]");
     decl_token_type!(If, "Token![if]");
+    decl_token_type!(Else, "Token![else]");
     decl_token_type!(Loop, "Token![loop]");
     decl_token_type!(While, "Token![while]");
     decl_token_type!(Return, "Token![return]");

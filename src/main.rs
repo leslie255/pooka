@@ -1,9 +1,7 @@
-#![feature(decl_macro, fn_traits, unboxed_closures, try_blocks)]
+#![feature(decl_macro, fn_traits, unboxed_closures)]
 #![allow(dead_code)]
 
 use std::rc::Rc;
-
-use span::Spanned;
 
 mod ast;
 mod lex;
@@ -16,12 +14,12 @@ fn main() {
     use crate::ast::*;
     use parse::*;
     let path: Rc<str> = "source.pooka".into();
-    let src = "struct {x: i32, y: i32}";
+    let src = "x : i32 = 0;";
     let tokens = lex::lex(path.clone(), src);
-    for token in &tokens {
-        println!("{:?} @ {:?}", token, &token.span);
-    }
     let mut parser_state = ParserState::new(&tokens, path.clone());
-    let ty: Spanned<Ty> = Parse::parse(&mut parser_state).unwrap();
-    dbg!(ty);
+    let parse_result = parse::<Stmt>(&mut parser_state);
+    match parse_result {
+        Ok(x) => println!("{:?} @ {:?}", x, x.span),
+        Err(e) => println!("{:?} @ {:?}", e, e.span),
+    }
 }

@@ -79,18 +79,59 @@ pub struct EnumVariant {
     pub fields: Spanned<Option<InParens<Punctuated<Ty, Token![,]>>>>,
 }
 
-#[derive(Clone, PartialEq)]
-pub enum Expr {
-    Literal(Literal),
-    Ident(Ident),
-    Tuple(Spanned<Punctuated<Expr, Token![,]>>),
-}
-
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Literal {
     StrLiteral(StrLiteral),
     IntLiteral(IntLiteral),
     FloatLiteral(FloatLiteral),
     CharLiteral(CharLiteral),
     BoolLiteral(BoolLiteral),
+}
+
+pub type TupleExpr = InParens<Punctuated<Expr, Token![,]>>;
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum Expr {
+    Literal(Literal),
+    Ident(Ident),
+    Tuple(TupleExpr),
+    Block(Block),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum Stmt {
+    Empty(Token![;]),
+    Expr(Spanned<Expr>, Spanned<Token![;]>),
+    VarDecl(Spanned<VarDecl>, Spanned<Token![;]>),
+    Block(Block),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct Block {
+    pub brace_l: Spanned<BraceL>,
+    pub stmts: Vec<Spanned<Stmt>>,
+    pub tail: Option<Box<Spanned<Expr>>>,
+    pub brace_r: Spanned<BraceR>,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum ColonEq_ {
+    OneToken(Token![:=]),
+    TwoTokens(Spanned<Token![:]>, Spanned<Token![=]>),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum VarDecl {
+    WithType {
+        lhs: Spanned<Pat>,
+        colon: Spanned<Token![:]>,
+        ty: Spanned<Ty>,
+        eq: Spanned<Token![=]>,
+        rhs: Spanned<Expr>,
+    },
+    WithoutType {
+        lhs: Spanned<Pat>,
+        colon_eq: Spanned<ColonEq_>,
+        rhs: Spanned<Expr>,
+    },
 }

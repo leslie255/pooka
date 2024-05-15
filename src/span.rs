@@ -107,3 +107,8 @@ impl<T> ToSpanned for T {
         Spanned { inner: self, span }
     }
 }
+
+pub fn spanned_into<T, U>(self_: Spanned<T>) -> Spanned<U> where U:From<T> 
+{
+    self_.map(Into::into)
+}

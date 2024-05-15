@@ -191,6 +191,7 @@ Note that \verb|,| and \verb|;| are in its whole reserved punctuations, as two e
     \item \verb|:=|
     \item \verb|:|
     \item \verb|::|
+    \item \verb|;|
     \item \verb|*|
     \item \verb|~|
     \item \verb|&|
@@ -262,12 +263,13 @@ Note that \verb|,| and \verb|;| are in its whole reserved punctuations, as two e
             | <lit>
             | <op expr>
             | ({<expr>},*)
+            | <block>
 \end{verbatim}
 
 \subsection{Assignments}
 
 \begin{verbatim}
-    <assign> := <pat> = <expr> ;
+    <assign> := <expr> = <expr> ;
 \end{verbatim}
 
 \begin{verbatim}
@@ -283,17 +285,18 @@ Note that \verb|,| and \verb|;| are in its whole reserved punctuations, as two e
 
 \begin{verbatim}
     <stmt> := <expr> ;
-            | <var decl>
+            | <var decl> ;
+            | <typealias> ;
+            | <newtype> ;
             | <fn decl>
-            | <typealias>
-            | <newtype>
             | <if>
             | <loop>
             | <while>
+            | <block>
 \end{verbatim}
 
 \begin{verbatim}
-    <block> := \{ {<stmt>}* \};
+    <block> := \{ {<stmt>}* \}
 \end{verbatim}
 
 \subsection{Variable Declarations}
