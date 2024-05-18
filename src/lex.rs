@@ -18,7 +18,7 @@ pub fn lex(path: Rc<str>, input: &str) -> Vec<Spanned<Token>> {
             None => break,
         }
     }
-    return tokens;
+    tokens
 }
 
 #[derive(Debug, Clone)]
@@ -113,100 +113,100 @@ impl<'s> LexerState<'s> {
         match self.chars.next()? {
             (_, c) if c.is_whitespace() => Some(Ok(())),
             x @ (_, c) if c.is_ascii_digit() => self.lex_num_literal(x, tokens),
-            (start, '\'') => match self.chars.peek() {
-                Some(&(i, '\\')) => {
-                    self.chars.next();
-                    let u: u32 = match self.chars.peek() {
-                        Some((_, 'n')) => {
-                            self.chars.next();
-                            '\n'.into()
-                        }
-                        Some((_, 'r')) => {
-                            self.chars.next();
-                            '\r'.into()
-                        }
-                        Some((_, 't')) => {
-                            self.chars.next();
-                            '\t'.into()
-                        }
-                        Some((_, 'v')) => {
-                            self.chars.next();
-                            0x0B
-                        }
-                        Some((_, '\\')) => {
-                            self.chars.next();
-                            '\\'.into()
-                        }
-                        Some((_, '0')) => {
-                            self.chars.next();
-                            0
-                        }
-                        Some((_, 'x')) => {
-                            self.chars.next();
-                            todo!()
-                        }
-                        Some((_, 'u')) => {
-                            self.chars.next();
-                            todo!()
-                        }
-                        Some(&(i, _)) => {
-                            let e = LexerError::InvalidCharLiteral
-                                .to_spanned(span!(self.path.clone(), start..i));
-                            return Some(Err(e));
-                        }
-                        None => {
-                            let e = LexerError::UnexpectedEof
-                                .to_spanned(span!(self.path.clone(), i..i));
-                            return Some(Err(e));
-                        }
-                    };
-                    let token = Token::CharLiteral(u);
-                    let end = match self.chars.peek() {
-                        Some(&(i, '\'')) => {
-                            self.chars.next();
-                            i
-                        }
-                        Some(&(i, _)) => {
-                            let e = LexerError::InvalidCharLiteral
-                                .to_spanned(span!(self.path.clone(), start..i));
-                            return Some(Err(e));
-                        }
-                        None => {
-                            let e = LexerError::UnexpectedEof
-                                .to_spanned(span!(self.path.clone(), i..i));
-                            return Some(Err(e));
-                        }
-                    };
-                    tokens.push(token.to_spanned(span!(self.path.clone(), start..end)));
-                    Some(Ok(()))
+            (start, '\'') => {
+                match self.chars.peek() {
+                    Some(&(i, '\\')) => {
+                        self.chars.next();
+                        let u: u32 = match self.chars.peek() {
+                            Some((_, 'n')) => {
+                                self.chars.next();
+                                '\n'.into()
+                            }
+                            Some((_, 'r')) => {
+                                self.chars.next();
+                                '\r'.into()
+                            }
+                            Some((_, 't')) => {
+                                self.chars.next();
+                                '\t'.into()
+                            }
+                            Some((_, 'v')) => {
+                                self.chars.next();
+                                0x0B
+                            }
+                            Some((_, '\\')) => {
+                                self.chars.next();
+                                '\\'.into()
+                            }
+                            Some((_, '0')) => {
+                                self.chars.next();
+                                0
+                            }
+                            Some((_, 'x')) => {
+                                self.chars.next();
+                                todo!()
+                            }
+                            Some((_, 'u')) => {
+                                self.chars.next();
+                                todo!()
+                            }
+                            Some(&(i, _)) => {
+                                let e = LexerError::InvalidCharLiteral
+                                    .to_spanned(span!(self.path.clone(), start..i));
+                                return Some(Err(e));
+                            }
+                            None => {
+                                let e = LexerError::UnexpectedEof
+                                    .to_spanned(span!(self.path.clone(), i..i));
+                                return Some(Err(e));
+                            }
+                        };
+                        let token = Token::CharLiteral(u);
+                        let end = match self.chars.peek() {
+                            Some(&(i, '\'')) => {
+                                self.chars.next();
+                                i
+                            }
+                            Some(&(i, _)) => {
+                                let e = LexerError::InvalidCharLiteral
+                                    .to_spanned(span!(self.path.clone(), start..i));
+                                return Some(Err(e));
+                            }
+                            None => {
+                                let e = LexerError::UnexpectedEof
+                                    .to_spanned(span!(self.path.clone(), i..i));
+                                return Some(Err(e));
+                            }
+                        };
+                        tokens.push(token.to_spanned(span!(self.path.clone(), start..end)));
+                        Some(Ok(()))
+                    }
+                    Some(&(i, c)) => {
+                        self.chars.next();
+                        let token = Token::CharLiteral(c.into());
+                        let end = match self.chars.peek() {
+                            Some(&(i, '\'')) => {
+                                self.chars.next();
+                                i
+                            }
+                            Some(&(i, _)) => {
+                                let e = LexerError::InvalidCharLiteral
+                                    .to_spanned(span!(self.path.clone(), start..i));
+                                return Some(Err(e));
+                            }
+                            None => {
+                                let e = LexerError::UnexpectedEof
+                                    .to_spanned(span!(self.path.clone(), i..i));
+                                return Some(Err(e));
+                            }
+                        };
+                        tokens.push(token.to_spanned(span!(self.path.clone(), start..end)));
+                        Some(Ok(()))
+                    }
+                    None => Some(Err(LexerError::UnexpectedEof
+                        .to_spanned(span!(self.path.clone(), start..start)))),
                 }
-                Some(&(i, c)) => {
-                    self.chars.next();
-                    let token = Token::CharLiteral(c.into());
-                    let end = match self.chars.peek() {
-                        Some(&(i, '\'')) => {
-                            self.chars.next();
-                            i
-                        }
-                        Some(&(i, _)) => {
-                            let e = LexerError::InvalidCharLiteral
-                                .to_spanned(span!(self.path.clone(), start..i));
-                            return Some(Err(e));
-                        }
-                        None => {
-                            let e = LexerError::UnexpectedEof
-                                .to_spanned(span!(self.path.clone(), i..i));
-                            return Some(Err(e));
-                        }
-                    };
-                    tokens.push(token.to_spanned(span!(self.path.clone(), start..end)));
-                    Some(Ok(()))
-                }
-                None => {
-                    return Some(Err(LexerError::UnexpectedEof
-                        .to_spanned(span!(self.path.clone(), start..start))));
-                }
-            },
+            }
             (_, '\"') => todo!("string literals"),
             (start, c) if is_ident_body(c) => {
                 let end = take_while(start, &mut self.chars, is_ident_body).unwrap_or(start);
@@ -284,9 +284,9 @@ impl<'s> LexerState<'s> {
     }
 }
 
-fn take_while<'s>(
+fn take_while(
     start: SourceIndex,
-    char_indices: &mut Peekable<SourceCharIndices<'s>>,
+    char_indices: &mut Peekable<SourceCharIndices>,
     mut predicate: impl FnMut(char) -> bool,
 ) -> Option<SourceIndex> {
     let &(mut end, c) = char_indices.peek()?;
@@ -301,11 +301,11 @@ fn take_while<'s>(
         end = i;
         char_indices.next();
     }
-    return Some(end);
+    Some(end)
 }
 
-fn take_while_<'s>(
-    char_indices: &mut Peekable<SourceCharIndices<'s>>,
+fn take_while_(
+    char_indices: &mut Peekable<SourceCharIndices>,
     mut predicate: impl FnMut(char) -> bool,
 ) -> Option<Range<SourceIndex>> {
     let &(start, c) = char_indices.peek()?;
@@ -321,7 +321,7 @@ fn take_while_<'s>(
         end = i;
         char_indices.next();
     }
-    return Some(start..end);
+    Some(start..end)
 }
 
 fn parse_puntuation(s: &str) -> Token {
@@ -395,6 +395,7 @@ fn is_punct_body(c: char) -> bool {
 }
 
 trait CharExtensions {
+    #[allow(clippy::wrong_self_convention)]
     fn is_unicode_punct(self) -> bool;
 }
 
@@ -433,12 +434,12 @@ fn parse_int_with_exp(s: &str) -> Result<u64, LexerError> {
             _ => return Err(LexerError::InvalidNumberLiteral),
         }
     }
-    return Ok(u);
+    Ok(u)
 }
 
 fn parse_int_bin(chars: &mut Chars) -> Result<u64, LexerError> {
     let mut u = 0u64;
-    while let Some(char) = chars.next() {
+    for char in chars.by_ref() {
         u *= 2;
         match char {
             '0' => u += 0,
@@ -446,12 +447,12 @@ fn parse_int_bin(chars: &mut Chars) -> Result<u64, LexerError> {
             _ => return Err(LexerError::InvalidNumberLiteral),
         }
     }
-    return Ok(u);
+    Ok(u)
 }
 
 fn parse_int_oct(chars: &mut Chars) -> Result<u64, LexerError> {
     let mut u = 0u64;
-    while let Some(char) = chars.next() {
+    for char in chars.by_ref() {
         u *= 8;
         match char {
             '0' => u += 0,
@@ -465,12 +466,12 @@ fn parse_int_oct(chars: &mut Chars) -> Result<u64, LexerError> {
             _ => return Err(LexerError::InvalidNumberLiteral),
         }
     }
-    return Ok(u);
+    Ok(u)
 }
 
 fn parse_int_dec(chars: &mut Chars) -> Result<u64, LexerError> {
     let mut u = 0u64;
-    while let Some(char) = chars.next() {
+    for char in chars.by_ref() {
         u *= 10;
         match char {
             '0' => u += 0,
@@ -486,16 +487,16 @@ fn parse_int_dec(chars: &mut Chars) -> Result<u64, LexerError> {
             _ => return Err(LexerError::InvalidNumberLiteral),
         }
     }
-    return Ok(u);
+    Ok(u)
 }
 
 fn parse_int_hex(chars: &mut Chars) -> Result<u64, LexerError> {
     let mut u = 0u64;
-    while let Some(char) = chars.next() {
+    for char in chars.by_ref() {
         u *= 16;
         u += parse_hex_digit(char).ok_or(LexerError::InvalidNumberLiteral)? as u64;
     }
-    return Ok(u);
+    Ok(u)
 }
 
 fn parse_hex_digit(c: char) -> Option<u8> {
@@ -516,7 +517,7 @@ fn parse_hex_digit(c: char) -> Option<u8> {
         'd' | 'D' => Some(13),
         'e' | 'E' => Some(14),
         'f' | 'F' => Some(15),
-        _ => return None,
+        _ => None,
     }
 }
 

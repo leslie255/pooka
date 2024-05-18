@@ -14,10 +14,10 @@ pub struct Punctuated<T, P> {
 }
 
 impl<T, P> Punctuated<T, P> {
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a Spanned<T>> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = &Spanned<T>> {
         self.into_iter()
     }
-    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut Spanned<T>> + 'a {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Spanned<T>> {
         self.into_iter()
     }
 }
@@ -113,11 +113,11 @@ pub struct EnumVariant {
 
 #[derive(Clone, PartialEq, Debug, From)]
 pub enum Literal {
-    StrLiteral(StrLiteral),
-    IntLiteral(IntLiteral),
-    FloatLiteral(FloatLiteral),
-    CharLiteral(CharLiteral),
-    BoolLiteral(BoolLiteral),
+    Str(StrLiteral),
+    Int(IntLiteral),
+    Float(FloatLiteral),
+    Char(CharLiteral),
+    Bool(BoolLiteral),
 }
 
 pub type TupleExpr = InParens<Punctuated<Expr, Token![,]>>;
@@ -146,7 +146,7 @@ pub struct Block {
     pub brace_r: Spanned<BraceR>,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, From)]
 pub enum ColonEq_ {
     OneToken(Token![:=]),
     TwoTokens(Spanned<Token![:]>, Spanned<Token![=]>),
@@ -166,6 +166,22 @@ pub enum VarDecl {
         colon_eq: Spanned<ColonEq_>,
         rhs: Spanned<Expr>,
     },
+}
+
+pub type FnArgs = InParens<Punctuated<PatTy, Comma>>;
+
+#[derive(Clone, PartialEq, From)]
+pub enum SemicolonOrBlock {
+    Block(Block),
+    Semicolon(Token![;]),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct FnDecl {
+    pub name: Spanned<Ident>,
+    pub colon_colon: Spanned<Token![::]>,
+    pub args: Spanned<FnArgs>,
+    pub body: Spanned<SemicolonOrBlock>,
 }
 
 // MARK: AST Formatting
@@ -209,6 +225,15 @@ impl Debug for ColonEq_ {
         match self {
             ColonEq_::OneToken(t) => Debug::fmt(t, f),
             ColonEq_::TwoTokens(t0, t1) => f.debug_list().entry(t0).entry(t1).finish(),
+        }
+    }
+}
+
+impl Debug for SemicolonOrBlock {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SemicolonOrBlock::Block(body) => Debug::fmt(body, f),
+            SemicolonOrBlock::Semicolon(semicolon) => Debug::fmt(semicolon, f),
         }
     }
 }
