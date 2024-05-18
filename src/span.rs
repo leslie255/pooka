@@ -62,16 +62,23 @@ impl Debug for Span {
     }
 }
 
+/// Uses tuple struct for easier pattern matching.
 #[derive(Default, Clone, PartialEq, Eq)]
-pub struct Spanned<T> {
-    pub inner: T,
-    pub span: Span,
-}
+pub struct Spanned<T>(pub T, pub Span);
 
 impl<T> Spanned<T> {
     pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U> {
-        let span = self.span;
-        f(self.inner).to_spanned(span)
+        let span = self.1;
+        f(self.0).to_spanned(span)
+    }
+    pub fn inner(&self) -> &T {
+        &self.0
+    }
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+    pub fn span(&self) -> Span {
+        self.1.clone()
     }
 }
 
@@ -80,7 +87,7 @@ where
     T: Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Debug::fmt(&self.inner, f)
+        Debug::fmt(&self.0, f)
     }
 }
 
@@ -88,13 +95,13 @@ impl<T> Deref for Spanned<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 
 impl<T> DerefMut for Spanned<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+        &mut self.0
     }
 }
 
@@ -104,7 +111,7 @@ pub trait ToSpanned: Sized {
 
 impl<T> ToSpanned for T {
     fn to_spanned(self, span: Span) -> Spanned<Self> {
-        Spanned { inner: self, span }
+        Spanned(self, span)
     }
 }
 

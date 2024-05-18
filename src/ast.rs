@@ -5,27 +5,59 @@ use crate::{
     token::{tokens::*, Token},
 };
 
+use derive_more::From;
+
 #[derive(Clone, PartialEq)]
 pub struct Punctuated<T, P> {
     pub pairs: Vec<(Spanned<T>, Spanned<P>)>,
     pub last: Option<Box<Spanned<T>>>,
 }
 
-impl<T, P> Debug for Punctuated<T, P>
-where
-    T: Debug,
-    P: Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut list = f.debug_list();
-        for (x, p) in &self.pairs {
-            list.entry(x);
-            list.entry(p);
-        }
-        self.last.as_ref().inspect(|x| {
-            list.entry(x);
-        });
-        list.finish()
+impl<T, P> Punctuated<T, P> {
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a Spanned<T>> + 'a {
+        self.into_iter()
+    }
+    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut Spanned<T>> + 'a {
+        self.into_iter()
+    }
+}
+
+impl<'a, T, P> IntoIterator for &'a Punctuated<T, P> {
+    type Item = &'a Spanned<T>;
+
+    type IntoIter = impl Iterator<Item = &'a Spanned<T>> + 'a;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.pairs
+            .iter()
+            .map(|(x, _)| x)
+            .chain(self.last.iter().map(|x| x.as_ref()))
+    }
+}
+
+impl<'a, T, P> IntoIterator for &'a mut Punctuated<T, P> {
+    type Item = &'a mut Spanned<T>;
+
+    type IntoIter = impl Iterator<Item = &'a mut Spanned<T>> + 'a;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.pairs
+            .iter_mut()
+            .map(|(x, _)| x)
+            .chain(self.last.iter_mut().map(|x| x.as_mut()))
+    }
+}
+
+impl<T, P> IntoIterator for Punctuated<T, P> {
+    type Item = Spanned<T>;
+
+    type IntoIter = impl Iterator<Item = Spanned<T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.pairs
+            .into_iter()
+            .map(|(x, _)| x)
+            .chain(self.last.into_iter().map(|x| *x))
     }
 }
 
@@ -39,13 +71,13 @@ pub type Mutness = Option<Token![mut]>;
 
 pub type TuplePat = InParens<Punctuated<Pat, Token![,]>>;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, From)]
 pub enum Pat {
     Binding(Spanned<Mutness>, Spanned<Ident>),
     Tuple(TuplePat),
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, From)]
 pub enum Ty {
     Typename(Ident),
     Ptr {
@@ -79,7 +111,7 @@ pub struct EnumVariant {
     pub fields: Spanned<Option<InParens<Punctuated<Ty, Token![,]>>>>,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, From)]
 pub enum Literal {
     StrLiteral(StrLiteral),
     IntLiteral(IntLiteral),
@@ -90,7 +122,7 @@ pub enum Literal {
 
 pub type TupleExpr = InParens<Punctuated<Expr, Token![,]>>;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, From)]
 pub enum Expr {
     Literal(Literal),
     Ident(Ident),
@@ -98,7 +130,7 @@ pub enum Expr {
     Block(Block),
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, From)]
 pub enum Stmt {
     Empty(Token![;]),
     Expr(Spanned<Expr>, Spanned<Token![;]>),
@@ -114,7 +146,7 @@ pub struct Block {
     pub brace_r: Spanned<BraceR>,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq)]
 pub enum ColonEq_ {
     OneToken(Token![:=]),
     TwoTokens(Spanned<Token![:]>, Spanned<Token![=]>),
@@ -134,4 +166,49 @@ pub enum VarDecl {
         colon_eq: Spanned<ColonEq_>,
         rhs: Spanned<Expr>,
     },
+}
+
+// MARK: AST Formatting
+
+impl<T, P> Debug for Punctuated<T, P>
+where
+    T: Debug,
+    P: Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut list = f.debug_list();
+        for (x, p) in &self.pairs {
+            list.entry(x);
+            list.entry(p);
+        }
+        self.last.as_ref().inspect(|x| {
+            list.entry(x);
+        });
+        list.finish()
+    }
+}
+
+impl Debug for Pat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Pat::Binding(Spanned(Some(_), _), name) => write!(f, "mut {name:?}"),
+            Pat::Binding(Spanned(None, _), name) => write!(f, "{name:?}"),
+            Pat::Tuple(fields) => {
+                let mut debug_tuple = f.debug_tuple("Tuple");
+                for field in fields.1.inner().iter() {
+                    debug_tuple.field(field);
+                }
+                debug_tuple.finish()
+            }
+        }
+    }
+}
+
+impl Debug for ColonEq_ {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ColonEq_::OneToken(t) => Debug::fmt(t, f),
+            ColonEq_::TwoTokens(t0, t1) => f.debug_list().entry(t0).entry(t1).finish(),
+        }
+    }
 }
