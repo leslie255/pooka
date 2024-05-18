@@ -30,6 +30,7 @@ pub enum ParseError {
     ExpectLiteral,
     ExpectExpr,
     ExpectStmt,
+    ExpectItem,
     InvalidPattern,
 }
 
@@ -606,7 +607,72 @@ impl Parse for FnDecl {
             colon_colon,
             args,
             body,
-        }.to_spanned(span))
+        }
+        .to_spanned(span))
+    }
+}
+
+impl Parse for TypeDecl {
+    fn peek(state: &mut ParserState) -> bool {
+        <Token![type]>::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let type_ = <Token![type]>::parse(state)?;
+        let name = Ident::parse(state)?;
+        let eq = <Token![=]>::parse(state)?;
+        let rhs = Ty::parse(state)?;
+        let start = find_span_start!(type_, name, eq, rhs);
+        let end = find_span_end!(rhs, eq, name, type_);
+        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        Ok(Self {
+            type_,
+            name,
+            eq,
+            rhs,
+        }
+        .to_spanned(span))
+    }
+}
+
+impl Parse for TypeAlias {
+    fn peek(state: &mut ParserState) -> bool {
+        <Token![typealias]>::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let typealias = <Token![typealias]>::parse(state)?;
+        let name = Ident::parse(state)?;
+        let eq = <Token![=]>::parse(state)?;
+        let rhs = Ty::parse(state)?;
+        let start = find_span_start!(typealias, name, eq, rhs);
+        let end = find_span_end!(rhs, eq, name, typealias);
+        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        Ok(Self {
+            typealias,
+            name,
+            eq,
+            rhs,
+        }
+        .to_spanned(span))
+    }
+}
+
+impl Parse for Item {
+    fn peek(state: &mut ParserState) -> bool {
+        FnDecl::peek(state) | TypeDecl::peek(state) | TypeAlias::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        if FnDecl::peek(state) {
+            FnDecl::parse(state).map(spanned_into)
+        } else if TypeDecl::peek(state) {
+            <(Spanned<TypeDecl>, Spanned<Token![;]>)>::parse(state).map(spanned_into)
+        } else if TypeAlias::peek(state) {
+            <(Spanned<TypeAlias>, Spanned<Token![;]>)>::parse(state).map(spanned_into)
+        } else {
+            Err(ParseError::ExpectItem.to_spanned(state.prev_span.clone()))
+        }
     }
 }
 

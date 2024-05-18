@@ -184,6 +184,29 @@ pub struct FnDecl {
     pub body: Spanned<SemicolonOrBlock>,
 }
 
+#[derive(Clone, PartialEq, Debug)]
+pub struct TypeDecl {
+    pub type_: Spanned<Token![type]>,
+    pub name: Spanned<Ident>,
+    pub eq: Spanned<Token![=]>,
+    pub rhs: Spanned<Ty>,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct TypeAlias {
+    pub typealias: Spanned<Token![typealias]>,
+    pub name: Spanned<Ident>,
+    pub eq: Spanned<Token![=]>,
+    pub rhs: Spanned<Ty>,
+}
+
+#[derive(Clone, PartialEq, Debug, From)]
+pub enum Item {
+    FnDecl(FnDecl),
+    TypeDecl(Spanned<TypeDecl>, Spanned<Token![;]>),
+    TypeAlias(Spanned<TypeAlias>, Spanned<Token![;]>),
+}
+
 // MARK: AST Formatting
 
 impl<T, P> Debug for Punctuated<T, P>
