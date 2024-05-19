@@ -32,6 +32,7 @@ pub enum ParseError {
     ExpectStmt,
     ExpectItem,
     InvalidPattern,
+    ExpectOper,
 }
 
 #[derive(Debug, Clone)]
@@ -322,23 +323,119 @@ impl Parse for Literal {
     }
 }
 
+impl Parse for Oper {
+    fn peek(state: &mut ParserState) -> bool {
+        matches!(
+            state.peek(),
+            Some(Spanned(Token::UnreservedPunct(_), _))
+                | Some(Spanned(Token::Eq, _))
+                | Some(Spanned(Token::ColonEq, _))
+                | Some(Spanned(Token::Colon, _))
+                | Some(Spanned(Token::ColonColon, _))
+                | Some(Spanned(Token::Ast, _))
+                | Some(Spanned(Token::Tilde, _))
+                | Some(Spanned(Token::Amp, _))
+                | Some(Spanned(Token::Verbar, _))
+                | Some(Spanned(Token::Circ, _))
+                | Some(Spanned(Token::GtGt, _))
+                | Some(Spanned(Token::LtLt, _))
+                | Some(Spanned(Token::GtGtEq, _))
+                | Some(Spanned(Token::LtLtEq, _))
+                | Some(Spanned(Token::AmpEq, _))
+                | Some(Spanned(Token::VerbarEq, _))
+                | Some(Spanned(Token::CircEq, _))
+                | Some(Spanned(Token::Excl, _))
+                | Some(Spanned(Token::AmpAmp, _))
+                | Some(Spanned(Token::VerbarVerbar, _))
+                | Some(Spanned(Token::Plus, _))
+                | Some(Spanned(Token::Minus, _))
+                | Some(Spanned(Token::Sol, _))
+                | Some(Spanned(Token::Percnt, _))
+                | Some(Spanned(Token::PlusEq, _))
+                | Some(Spanned(Token::MinusEq, _))
+                | Some(Spanned(Token::AstEq, _))
+                | Some(Spanned(Token::SolEq, _))
+                | Some(Spanned(Token::PercntEq, _))
+                | Some(Spanned(Token::Gt, _))
+                | Some(Spanned(Token::Lt, _))
+                | Some(Spanned(Token::GtEq, _))
+                | Some(Spanned(Token::LtEq, _))
+                | Some(Spanned(Token::EqEq, _))
+                | Some(Spanned(Token::ExclEq, _))
+                | Some(Spanned(Token::Commat, _))
+        )
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let Spanned(tk, span) = state.next_or_eof_error()?;
+        let oper = match tk {
+            Token::UnreservedPunct(p) => Self::UnreservedPunct(p.clone()),
+            Token::Eq => Self::Eq,
+            Token::ColonEq => Self::ColonEq,
+            Token::Colon => Self::Colon,
+            Token::ColonColon => Self::ColonColon,
+            Token::Ast => Self::Ast,
+            Token::Tilde => Self::Tilde,
+            Token::Amp => Self::Amp,
+            Token::Verbar => Self::Verbar,
+            Token::Circ => Self::Circ,
+            Token::GtGt => Self::GtGt,
+            Token::LtLt => Self::LtLt,
+            Token::GtGtEq => Self::GtGtEq,
+            Token::LtLtEq => Self::LtLtEq,
+            Token::AmpEq => Self::AmpEq,
+            Token::VerbarEq => Self::VerbarEq,
+            Token::CircEq => Self::CircEq,
+            Token::Excl => Self::Excl,
+            Token::AmpAmp => Self::AmpAmp,
+            Token::VerbarVerbar => Self::VerbarVerbar,
+            Token::Plus => Self::Plus,
+            Token::Minus => Self::Minus,
+            Token::Sol => Self::Sol,
+            Token::Percnt => Self::Percnt,
+            Token::PlusEq => Self::PlusEq,
+            Token::MinusEq => Self::MinusEq,
+            Token::AstEq => Self::AstEq,
+            Token::SolEq => Self::SolEq,
+            Token::PercntEq => Self::PercntEq,
+            Token::Gt => Self::Gt,
+            Token::Lt => Self::Lt,
+            Token::GtEq => Self::GtEq,
+            Token::LtEq => Self::LtEq,
+            Token::EqEq => Self::EqEq,
+            Token::ExclEq => Self::ExclEq,
+            Token::Commat => Self::Commat,
+            _ => return Err(ParseError::ExpectOper.to_spanned(span.clone())),
+        };
+        Ok(oper.to_spanned(span.clone()))
+    }
+}
+
 impl Parse for Expr {
     fn peek(state: &mut ParserState) -> bool {
         Literal::peek(state) | Ident::peek(state) | TupleExpr::peek(state) | Block::peek(state)
     }
 
     fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
-        if Literal::peek(state) {
-            Literal::parse(state).map(spanned_into)
+        let expr: Spanned<Expr> = if Literal::peek(state) {
+            spanned_into(Literal::parse(state)?)
         } else if Ident::peek(state) {
-            Ident::parse(state).map(spanned_into)
+            spanned_into(Ident::parse(state)?)
         } else if TupleExpr::peek(state) {
-            TupleExpr::parse(state).map(spanned_into)
+            spanned_into(TupleExpr::parse(state)?)
         } else if Block::peek(state) {
-            Block::parse(state).map(spanned_into)
+            spanned_into(Block::parse(state)?)
         } else {
-            Err(ParseError::ExpectExpr.to_spanned(state.prev_span.clone()))
+            return Err(ParseError::ExpectExpr.to_spanned(state.prev_span.clone()));
+        };
+        if Oper::peek(state) {
+            let oper = Oper::parse(state)?;
+            if matches!(oper.inner(), Oper::UnreservedPunct(..)) {
+                todo!()
+            }
+            todo!()
         }
+        Ok(expr)
     }
 }
 
@@ -597,15 +694,17 @@ impl Parse for FnDecl {
     fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
         let name = Ident::parse(state)?;
         let colon_colon = <Token![::]>::parse(state)?;
-        let args = FnArgs::parse(state)?;
+        let args = FnDeclArgs::parse(state)?;
+        let ret = FnDeclRet::parse(state)?;
         let body = SemicolonOrBlock::parse(state)?;
-        let start = find_span_start!(name, colon_colon, args, body);
-        let end = find_span_end!(body, args, colon_colon, name);
+        let start = find_span_start!(name, colon_colon, args, ret, body);
+        let end = find_span_end!(body, args, ret, colon_colon, name);
         let span = Span::new(Some(state.path.clone()), join_range(start, end));
         Ok(Self {
             name,
             colon_colon,
             args,
+            ret,
             body,
         }
         .to_spanned(span))

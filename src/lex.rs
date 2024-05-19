@@ -368,6 +368,7 @@ fn parse_puntuation(s: &str) -> Token {
         "<=" => Token::LtEq,
         "==" => Token::EqEq,
         "!=" => Token::ExclEq,
+        "->" => Token::Arrow,
         "@" => Token::Commat,
         s => Token::UnreservedPunct(s.into()),
     }

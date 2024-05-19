@@ -14,7 +14,7 @@ fn main() {
     use crate::ast::*;
     use parse::*;
     let path: Rc<str> = "source.pooka".into();
-    let src = r#"typealias T = i32;"#;
+    let src = "f :: () -> () { _ := 1 + 1; }";
     let tokens = lex::lex(path.clone(), src);
     let mut parser_state = ParserState::new(&tokens, path.clone());
     let parse_result = parse::<Item>(&mut parser_state);

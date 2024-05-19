@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug};
+use std::{fmt::{self, Debug}, rc::Rc};
 
 use crate::{
     span::Spanned,
@@ -120,6 +120,46 @@ pub enum Literal {
     Bool(BoolLiteral),
 }
 
+#[derive(Clone, PartialEq, Debug, From)]
+pub enum Oper {
+    UnreservedPunct(Rc<str>),
+    Eq,
+    ColonEq,
+    Colon,
+    ColonColon,
+    Ast,
+    Tilde,
+    Amp,
+    Verbar,
+    Circ,
+    GtGt,
+    LtLt,
+    GtGtEq,
+    LtLtEq,
+    AmpEq,
+    VerbarEq,
+    CircEq,
+    Excl,
+    AmpAmp,
+    VerbarVerbar,
+    Plus,
+    Minus,
+    Sol,
+    Percnt,
+    PlusEq,
+    MinusEq,
+    AstEq,
+    SolEq,
+    PercntEq,
+    Gt,
+    Lt,
+    GtEq,
+    LtEq,
+    EqEq,
+    ExclEq,
+    Commat,
+}
+
 pub type TupleExpr = InParens<Punctuated<Expr, Token![,]>>;
 
 #[derive(Clone, PartialEq, Debug, From)]
@@ -168,7 +208,8 @@ pub enum VarDecl {
     },
 }
 
-pub type FnArgs = InParens<Punctuated<PatTy, Comma>>;
+pub type FnDeclArgs = InParens<Punctuated<PatTy, Comma>>;
+pub type FnDeclRet = Option<(Spanned<Token![->]>, Spanned<Ty>)>;
 
 #[derive(Clone, PartialEq, From)]
 pub enum SemicolonOrBlock {
@@ -180,7 +221,8 @@ pub enum SemicolonOrBlock {
 pub struct FnDecl {
     pub name: Spanned<Ident>,
     pub colon_colon: Spanned<Token![::]>,
-    pub args: Spanned<FnArgs>,
+    pub args: Spanned<FnDeclArgs>,
+    pub ret: Spanned<FnDeclRet>,
     pub body: Spanned<SemicolonOrBlock>,
 }
 
