@@ -1,3 +1,5 @@
+pub mod lex;
+
 use std::{fmt, fmt::Debug, rc::Rc};
 
 use crate::span::{Span, Spanned, ToSpanned};

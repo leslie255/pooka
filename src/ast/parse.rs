@@ -1,8 +1,9 @@
 use derive_more::From;
 use std::{iter::Peekable, ops::Range, rc::Rc, slice};
 
+use super::*;
+
 use crate::{
-    ast::*,
     source_str::SourceIndex,
     span::{span, spanned_into, Span, Spanned, ToSpanned},
     token::{
@@ -195,7 +196,7 @@ where
 
 impl Parse for Pat {
     fn peek(state: &mut ParserState) -> bool {
-        Mutness::peek(state) | Ident::peek(state) | PatTuple::peek(state)
+        Mutness::peek(state) | Ident::peek(state) | TuplePat::peek(state)
     }
 
     fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
@@ -212,8 +213,8 @@ impl Parse for Pat {
             let ident = Ident::parse(state)?;
             let span = ident.1.clone();
             Ok(Self::Binding(None.to_spanned(Span::default()), ident).to_spanned(span))
-        } else if PatTuple::peek(state) {
-            let tuple_pat = PatTuple::parse(state)?;
+        } else if TuplePat::peek(state) {
+            let tuple_pat = TuplePat::parse(state)?;
             Ok(spanned_into(tuple_pat))
         } else {
             Err(ParseError::ExpectPat.to_spanned(state.prev_span()))
@@ -431,8 +432,8 @@ impl Expr {
             Literal::parse(state).map(spanned_into)?
         } else if Ident::peek(state) {
             Ident::parse(state).map(spanned_into)?
-        } else if ExprTuple::peek(state) {
-            ExprTuple::parse(state).map(spanned_into)?
+        } else if TupleExpr::peek(state) {
+            TupleExpr::parse(state).map(spanned_into)?
         } else if Block::peek(state) {
             Block::parse(state).map(spanned_into)?
         } else {
@@ -455,7 +456,7 @@ impl Expr {
 
 impl Parse for Expr {
     fn peek(state: &mut ParserState) -> bool {
-        Literal::peek(state) | Ident::peek(state) | ExprTuple::peek(state) | Block::peek(state)
+        Literal::peek(state) | Ident::peek(state) | TupleExpr::peek(state) | Block::peek(state)
     }
 
     fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {

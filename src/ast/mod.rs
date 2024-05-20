@@ -1,3 +1,5 @@
+pub mod parse;
+
 use std::{fmt::{self, Debug}, rc::Rc};
 
 use crate::{
