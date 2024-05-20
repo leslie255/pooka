@@ -161,7 +161,7 @@ pub enum Oper {
 #[derive(Clone, PartialEq, Debug, From)]
 pub enum ExprOrOper {
     Expr(Expr),
-    OperExpr(Oper),
+    Oper(Oper),
 }
 
 pub type TupleExpr = InParens<Punctuated<Expr, Token![,]>>;
@@ -171,7 +171,8 @@ pub enum Expr {
     Literal(Literal),
     Ident(Ident),
     Tuple(TupleExpr),
-    Oper(Vec<Spanned<ExprOrOper>>),
+    #[allow(clippy::enum_variant_names)]
+    OperExpr(Vec<Spanned<ExprOrOper>>),
     Block(Block),
 }
 

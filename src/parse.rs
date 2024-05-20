@@ -413,16 +413,16 @@ impl Parse for Oper {
     }
 }
 
-impl Parse for ExprOrOper {
-    fn peek(state: &mut ParserState) -> bool {
-        Expr::peek(state) | Oper::peek(state)
-    }
-
-    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
-        if Expr::peek(state) {
-            Expr::parse(state).map(spanned_into)
-        } else if Oper::peek(state) {
-            Oper::parse(state).map(spanned_into)
+impl Expr {
+    pub fn parse_opless(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        if Literal::peek(state) {
+            Literal::parse(state).map(spanned_into)
+        } else if Ident::peek(state) {
+            Ident::parse(state).map(spanned_into)
+        } else if TupleExpr::peek(state) {
+            TupleExpr::parse(state).map(spanned_into)
+        } else if Block::peek(state) {
+            Block::parse(state).map(spanned_into)
         } else {
             Err(ParseError::ExpectExpr.to_spanned(state.prev_span()))
         }
@@ -435,24 +435,20 @@ impl Parse for Expr {
     }
 
     fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
-        let expr: Spanned<Expr> = if Literal::peek(state) {
-            spanned_into(Literal::parse(state)?)
-        } else if Ident::peek(state) {
-            spanned_into(Ident::parse(state)?)
-        } else if TupleExpr::peek(state) {
-            spanned_into(TupleExpr::parse(state)?)
-        } else if Block::peek(state) {
-            spanned_into(Block::parse(state)?)
-        } else {
-            return Err(ParseError::ExpectExpr.to_spanned(state.prev_span()));
-        };
+        let expr = Self::parse_opless(state)?;
         if Oper::peek(state) {
             let mut start = expr.span().range.map(|x| x.start);
             let mut end = expr.span().range.map(|x| x.end);
             let mut items = Vec::<Spanned<ExprOrOper>>::new();
             items.push(spanned_into(expr));
-            while ExprOrOper::peek(state) {
-                let item = ExprOrOper::parse(state)?;
+            loop {
+                let item: Spanned<ExprOrOper> = if Expr::peek(state) {
+                    Expr::parse_opless(state).map(spanned_into)
+                } else if Oper::peek(state) {
+                    Oper::parse(state).map(spanned_into)
+                } else {
+                    break;
+                }?;
                 item.span().range.inspect(|i| {
                     start.get_or_insert(i.start);
                     end = Some(i.end);
@@ -460,7 +456,7 @@ impl Parse for Expr {
                 items.push(item);
             }
             let span = Span::new(Some(state.path()), join_range(start, end));
-            Ok(Self::Oper(items).to_spanned(span))
+            Ok(Self::from(items).to_spanned(span))
         } else {
             Ok(expr)
         }
