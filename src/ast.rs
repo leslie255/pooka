@@ -124,9 +124,6 @@ pub enum Literal {
 pub enum Oper {
     UnreservedPunct(Rc<str>),
     Eq,
-    ColonEq,
-    Colon,
-    ColonColon,
     Ast,
     Tilde,
     Amp,
@@ -167,6 +164,7 @@ pub enum Expr {
     Literal(Literal),
     Ident(Ident),
     Tuple(TupleExpr),
+    Oper(Punctuated<Expr, Oper>),
     Block(Block),
 }
 

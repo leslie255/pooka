@@ -131,6 +131,51 @@ where
     }
 }
 
+impl<T, P> Punctuated<T, P>
+where
+    T: Parse,
+    P: Parse,
+{
+    pub fn parse_after_first(
+        state: &mut ParserState,
+        first: Spanned<T>,
+    ) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        let mut self_ = Self {
+            pairs: Vec::new(),
+            last: None,
+        };
+        if !P::peek(state) {
+            let span = first.span();
+            self_.last = Some(Box::new(first));
+            return Ok(self_.to_spanned(span));
+        } else {
+            let p = P::parse(state)?;
+            self_.pairs.push((first, p));
+        }
+        let mut start = None;
+        let mut end = start;
+        loop {
+            if !T::peek(state) {
+                break;
+            }
+            let item = T::parse(state)?;
+            item.1.range.clone().inspect(|i| {
+                start.get_or_insert(i.start);
+                end = Some(i.end);
+            });
+            if P::peek(state) {
+                let punct = P::parse(state)?;
+                self_.pairs.push((item, punct));
+            } else {
+                self_.last = Some(Box::new(item));
+                break;
+            }
+        }
+        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        Ok(self_.to_spanned(span))
+    }
+}
+
 impl<T, P> Parse for Punctuated<T, P>
 where
     T: Parse,
@@ -371,9 +416,6 @@ impl Parse for Oper {
         let oper = match tk {
             Token::UnreservedPunct(p) => Self::UnreservedPunct(p.clone()),
             Token::Eq => Self::Eq,
-            Token::ColonEq => Self::ColonEq,
-            Token::Colon => Self::Colon,
-            Token::ColonColon => Self::ColonColon,
             Token::Ast => Self::Ast,
             Token::Tilde => Self::Tilde,
             Token::Amp => Self::Amp,
@@ -429,13 +471,10 @@ impl Parse for Expr {
             return Err(ParseError::ExpectExpr.to_spanned(state.prev_span.clone()));
         };
         if Oper::peek(state) {
-            let oper = Oper::parse(state)?;
-            if matches!(oper.inner(), Oper::UnreservedPunct(..)) {
-                todo!()
-            }
-            todo!()
+            Punctuated::<Expr, Oper>::parse_after_first(state, expr).map(spanned_into)
+        } else {
+            Ok(expr)
         }
-        Ok(expr)
     }
 }
 
