@@ -165,6 +165,7 @@ pub enum ExprOrOper {
 }
 
 pub type TupleExpr = InParens<Punctuated<Expr, Token![,]>>;
+pub type CallArgs = InParens<Punctuated<Expr, Token![,]>>;
 
 #[derive(Clone, PartialEq, Debug, From)]
 pub enum Expr {
@@ -173,6 +174,7 @@ pub enum Expr {
     Tuple(TupleExpr),
     #[allow(clippy::enum_variant_names)]
     OperExpr(Vec<Spanned<ExprOrOper>>),
+    Call(Box<Spanned<Expr>>, Spanned<CallArgs>),
     Block(Block),
 }
 
@@ -214,7 +216,7 @@ pub enum VarDecl {
     },
 }
 
-pub type FnDeclArgs = InParens<Punctuated<PatTy, Comma>>;
+pub type FnDeclArgs = InParens<Punctuated<PatTy, Token![,]>>;
 pub type FnDeclRet = Option<(Spanned<Token![->]>, Spanned<Ty>)>;
 
 #[derive(Clone, PartialEq, From)]
