@@ -123,6 +123,7 @@ pub enum Literal {
 #[derive(Clone, PartialEq, Debug, From)]
 pub enum Oper {
     UnreservedPunct(Rc<str>),
+    Period,
     Eq,
     Ast,
     Tilde,
@@ -157,6 +158,12 @@ pub enum Oper {
     Commat,
 }
 
+#[derive(Clone, PartialEq, Debug, From)]
+pub enum ExprOrOper {
+    Expr(Expr),
+    OperExpr(Oper),
+}
+
 pub type TupleExpr = InParens<Punctuated<Expr, Token![,]>>;
 
 #[derive(Clone, PartialEq, Debug, From)]
@@ -164,7 +171,7 @@ pub enum Expr {
     Literal(Literal),
     Ident(Ident),
     Tuple(TupleExpr),
-    Oper(Punctuated<Expr, Oper>),
+    Oper(Vec<Spanned<ExprOrOper>>),
     Block(Block),
 }
 

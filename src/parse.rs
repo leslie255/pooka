@@ -84,6 +84,12 @@ impl<'a> ParserState<'a> {
         self.prev_span = t.span();
         Ok(t)
     }
+    fn prev_span(&self) -> Span {
+        self.prev_span.clone()
+    }
+    fn path(&self) -> Rc<str> {
+        self.path.clone()
+    }
 }
 
 pub trait Parse: Sized {
@@ -105,7 +111,7 @@ where
         let right = R::parse(state)?;
         let start = find_span_start!(left, right);
         let end = find_span_end!(right, left);
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        let span = Span::new(Some(state.path()), join_range(start, end));
         Ok((left, right).to_spanned(span))
     }
 }
@@ -126,53 +132,8 @@ where
         let right = R::parse(state)?;
         let start: Option<SourceIndex> = find_span_start!(left, center, right);
         let end: Option<SourceIndex> = find_span_end!(right, center, left);
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        let span = Span::new(Some(state.path()), join_range(start, end));
         Ok((left, center, right).to_spanned(span))
-    }
-}
-
-impl<T, P> Punctuated<T, P>
-where
-    T: Parse,
-    P: Parse,
-{
-    pub fn parse_after_first(
-        state: &mut ParserState,
-        first: Spanned<T>,
-    ) -> Result<Spanned<Self>, Spanned<ParseError>> {
-        let mut self_ = Self {
-            pairs: Vec::new(),
-            last: None,
-        };
-        if !P::peek(state) {
-            let span = first.span();
-            self_.last = Some(Box::new(first));
-            return Ok(self_.to_spanned(span));
-        } else {
-            let p = P::parse(state)?;
-            self_.pairs.push((first, p));
-        }
-        let mut start = None;
-        let mut end = start;
-        loop {
-            if !T::peek(state) {
-                break;
-            }
-            let item = T::parse(state)?;
-            item.1.range.clone().inspect(|i| {
-                start.get_or_insert(i.start);
-                end = Some(i.end);
-            });
-            if P::peek(state) {
-                let punct = P::parse(state)?;
-                self_.pairs.push((item, punct));
-            } else {
-                self_.last = Some(Box::new(item));
-                break;
-            }
-        }
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
-        Ok(self_.to_spanned(span))
     }
 }
 
@@ -197,7 +158,7 @@ where
                 break;
             }
             let item = T::parse(state)?;
-            item.1.range.clone().inspect(|i| {
+            item.span().range.inspect(|i| {
                 start.get_or_insert(i.start);
                 end = Some(i.end);
             });
@@ -209,7 +170,7 @@ where
                 break;
             }
         }
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        let span = Span::new(Some(state.path()), join_range(start, end));
         Ok(self_.to_spanned(span))
     }
 }
@@ -242,7 +203,7 @@ impl Parse for Pat {
             let ident = Ident::parse(state)?;
             let start = find_span_start!(mutness, ident);
             let end = find_span_end!(ident, mutness);
-            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            let span = Span::new(Some(state.path()), join_range(start, end));
             Ok(Self::Binding(mutness, ident).to_spanned(span))
         } else if Ident::peek(state) {
             let ident = Ident::parse(state)?;
@@ -252,7 +213,7 @@ impl Parse for Pat {
             let tuple_pat = TuplePat::parse(state)?;
             Ok(spanned_into(tuple_pat))
         } else {
-            Err(ParseError::ExpectPat.to_spanned(state.prev_span.clone()))
+            Err(ParseError::ExpectPat.to_spanned(state.prev_span()))
         }
     }
 }
@@ -277,7 +238,7 @@ impl Parse for Ty {
                 let child = Ty::parse(state)?;
                 let start = find_span_start!(amp, mut_, child);
                 let end = find_span_end!(child, mut_, amp);
-                let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                let span = Span::new(Some(state.path()), join_range(start, end));
                 Ok(Self::Ptr {
                     amp,
                     mut_,
@@ -288,7 +249,7 @@ impl Parse for Ty {
                 let child = <InBrackets<Ty>>::parse(state)?;
                 let start = find_span_start!(amp, mut_, child);
                 let end = find_span_end!(child, mut_, amp);
-                let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                let span = Span::new(Some(state.path()), join_range(start, end));
                 Ok(Self::SlicePtr {
                     amp,
                     mut_,
@@ -296,7 +257,7 @@ impl Parse for Ty {
                 }
                 .to_spanned(span))
             } else {
-                Err(ParseError::ExpectTy.to_spanned(state.prev_span.clone()))
+                Err(ParseError::ExpectTy.to_spanned(state.prev_span()))
             }
         } else if <InParens<Punctuated<Ty, Token![,]>>>::peek(state) {
             <InParens<Punctuated<Ty, Token![,]>>>::parse(state).map(spanned_into)
@@ -305,24 +266,24 @@ impl Parse for Ty {
             let fields = <InBraces<Punctuated<PatTy, Token![,]>>>::parse(state)?;
             let start = find_span_start!(struct_, fields);
             let end = find_span_end!(fields, struct_);
-            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            let span = Span::new(Some(state.path()), join_range(start, end));
             Ok(Self::Struct { struct_, fields }.to_spanned(span))
         } else if <Token![union]>::peek(state) {
             let union_ = <Token![union]>::parse(state)?;
             let fields = <InBraces<Punctuated<PatTy, Token![,]>>>::parse(state)?;
             let start = find_span_start!(union_, fields);
             let end = find_span_end!(fields, union_);
-            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            let span = Span::new(Some(state.path()), join_range(start, end));
             Ok(Self::Union { union_, fields }.to_spanned(span))
         } else if <Token![enum]>::peek(state) {
             let enum_ = <Token![enum]>::parse(state)?;
             let fields = <InBraces<Punctuated<EnumVariant, Token![,]>>>::parse(state)?;
             let start = find_span_start!(enum_, fields);
             let end = find_span_end!(fields, enum_);
-            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            let span = Span::new(Some(state.path()), join_range(start, end));
             Ok(Self::Enum { enum_, fields }.to_spanned(span))
         } else {
-            Err(ParseError::ExpectTy.to_spanned(state.prev_span.clone()))
+            Err(ParseError::ExpectTy.to_spanned(state.prev_span()))
         }
     }
 }
@@ -337,7 +298,7 @@ impl Parse for EnumVariant {
         let fields = <Option<InParens<Punctuated<Ty, Token![,]>>>>::parse(state)?;
         let start = find_span_start!(name, fields);
         let end = find_span_end!(fields, name);
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        let span = Span::new(Some(state.path()), join_range(start, end));
         Ok(Self { name, fields }.to_spanned(span))
     }
 }
@@ -363,7 +324,7 @@ impl Parse for Literal {
         } else if BoolLiteral::peek(state) {
             BoolLiteral::parse(state).map(spanned_into)
         } else {
-            Err(ParseError::ExpectLiteral.to_spanned(state.prev_span.clone()))
+            Err(ParseError::ExpectLiteral.to_spanned(state.prev_span()))
         }
     }
 }
@@ -373,10 +334,8 @@ impl Parse for Oper {
         matches!(
             state.peek(),
             Some(Spanned(Token::UnreservedPunct(_), _))
+                | Some(Spanned(Token::Period, _))
                 | Some(Spanned(Token::Eq, _))
-                | Some(Spanned(Token::ColonEq, _))
-                | Some(Spanned(Token::Colon, _))
-                | Some(Spanned(Token::ColonColon, _))
                 | Some(Spanned(Token::Ast, _))
                 | Some(Spanned(Token::Tilde, _))
                 | Some(Spanned(Token::Amp, _))
@@ -415,6 +374,7 @@ impl Parse for Oper {
         let Spanned(tk, span) = state.next_or_eof_error()?;
         let oper = match tk {
             Token::UnreservedPunct(p) => Self::UnreservedPunct(p.clone()),
+            Token::Period => Self::Period,
             Token::Eq => Self::Eq,
             Token::Ast => Self::Ast,
             Token::Tilde => Self::Tilde,
@@ -453,6 +413,22 @@ impl Parse for Oper {
     }
 }
 
+impl Parse for ExprOrOper {
+    fn peek(state: &mut ParserState) -> bool {
+        Expr::peek(state) | Oper::peek(state)
+    }
+
+    fn parse(state: &mut ParserState) -> Result<Spanned<Self>, Spanned<ParseError>> {
+        if Expr::peek(state) {
+            Expr::parse(state).map(spanned_into)
+        } else if Oper::peek(state) {
+            Oper::parse(state).map(spanned_into)
+        } else {
+            Err(ParseError::ExpectExpr.to_spanned(state.prev_span()))
+        }
+    }
+}
+
 impl Parse for Expr {
     fn peek(state: &mut ParserState) -> bool {
         Literal::peek(state) | Ident::peek(state) | TupleExpr::peek(state) | Block::peek(state)
@@ -468,10 +444,23 @@ impl Parse for Expr {
         } else if Block::peek(state) {
             spanned_into(Block::parse(state)?)
         } else {
-            return Err(ParseError::ExpectExpr.to_spanned(state.prev_span.clone()));
+            return Err(ParseError::ExpectExpr.to_spanned(state.prev_span()));
         };
         if Oper::peek(state) {
-            Punctuated::<Expr, Oper>::parse_after_first(state, expr).map(spanned_into)
+            let mut start = expr.span().range.map(|x| x.start);
+            let mut end = expr.span().range.map(|x| x.end);
+            let mut items = Vec::<Spanned<ExprOrOper>>::new();
+            items.push(spanned_into(expr));
+            while ExprOrOper::peek(state) {
+                let item = ExprOrOper::parse(state)?;
+                item.span().range.inspect(|i| {
+                    start.get_or_insert(i.start);
+                    end = Some(i.end);
+                });
+                items.push(item);
+            }
+            let span = Span::new(Some(state.path()), join_range(start, end));
+            Ok(Self::Oper(items).to_spanned(span))
         } else {
             Ok(expr)
         }
@@ -491,7 +480,7 @@ impl Parse for Stmt {
             let semicolon = <Token![;]>::parse(state)?;
             let start = find_span_start!(var_decl_or_expr, semicolon);
             let end = find_span_end!(var_decl_or_expr, semicolon);
-            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            let span = Span::new(Some(state.path()), join_range(start, end));
             let Spanned(var_decl_or_expr, span_) = var_decl_or_expr;
             let stmt = match var_decl_or_expr {
                 VarDeclOrExpr::VarDecl(x) => Stmt::VarDecl(x.to_spanned(span_), semicolon),
@@ -501,7 +490,7 @@ impl Parse for Stmt {
         } else if Block::peek(state) {
             Block::parse(state).map(spanned_into)
         } else {
-            Err(ParseError::ExpectStmt.to_spanned(state.prev_span.clone()))
+            Err(ParseError::ExpectStmt.to_spanned(state.prev_span()))
         }
     }
 }
@@ -567,7 +556,7 @@ impl VarDecl {
             let rhs = Expr::parse(state)?;
             let start = find_span_start!(lhs, colon_eq, rhs);
             let end = find_span_end!(rhs, colon_eq, lhs);
-            let span = Span::new(Some(state.path.clone()), join_range(start, end));
+            let span = Span::new(Some(state.path()), join_range(start, end));
             Ok(Self::WithoutType { lhs, colon_eq, rhs }.to_spanned(span))
         } else if <Token![:]>::peek(state) {
             let colon = <Token![:]>::parse(state)?;
@@ -576,8 +565,8 @@ impl VarDecl {
                 let rhs = Expr::parse(state)?;
                 let start = find_span_start!(lhs, colon, eq, rhs);
                 let end = find_span_end!(rhs, colon, eq, lhs);
-                let colon_eq = ColonEq_::two_tokens(state.path.clone(), colon, eq);
-                let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                let colon_eq = ColonEq_::two_tokens(state.path(), colon, eq);
+                let span = Span::new(Some(state.path()), join_range(start, end));
                 Ok(Self::WithoutType { lhs, colon_eq, rhs }.to_spanned(span))
             } else {
                 let ty = Ty::parse(state)?;
@@ -585,7 +574,7 @@ impl VarDecl {
                 let rhs = Expr::parse(state)?;
                 let start = find_span_start!(lhs, colon, ty, eq, rhs);
                 let end = find_span_end!(rhs, colon, ty, eq, lhs);
-                let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                let span = Span::new(Some(state.path()), join_range(start, end));
                 Ok(Self::WithType {
                     lhs,
                     colon,
@@ -632,7 +621,7 @@ impl Parse for StmtOrTail {
                     let semicolon = <Token![;]>::parse(state)?;
                     let start = find_span_start!(var_decl, semicolon);
                     let end = find_span_end!(var_decl, semicolon);
-                    let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                    let span = Span::new(Some(state.path()), join_range(start, end));
                     let stmt = Stmt::VarDecl(var_decl, semicolon);
                     Ok(Self::Stmt(stmt).to_spanned(span))
                 }
@@ -642,7 +631,7 @@ impl Parse for StmtOrTail {
                         let semicolon = <Token![;]>::parse(state)?;
                         let start = find_span_start!(expr, semicolon);
                         let end = find_span_end!(expr, semicolon);
-                        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+                        let span = Span::new(Some(state.path()), join_range(start, end));
                         Ok(Self::Stmt(Stmt::Expr(expr, semicolon)).to_spanned(span))
                     } else {
                         Ok(spanned_into(expr))
@@ -652,7 +641,7 @@ impl Parse for StmtOrTail {
         } else if Stmt::peek(state) {
             Stmt::parse(state).map(spanned_into)
         } else {
-            Err(ParseError::ExpectStmt.to_spanned(state.prev_span.clone()))
+            Err(ParseError::ExpectStmt.to_spanned(state.prev_span()))
         }
     }
 }
@@ -698,7 +687,7 @@ impl Parse for Block {
             start.get_or_insert(i.start);
             end = Some(i.end);
         });
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        let span = Span::new(Some(state.path()), join_range(start, end));
         Ok(Self {
             brace_l,
             stmts,
@@ -720,7 +709,7 @@ impl Parse for SemicolonOrBlock {
         } else if Block::peek(state) {
             Block::parse(state).map(spanned_into)
         } else {
-            Err(ParseError::ExpectSemicolonOrBlock.to_spanned(state.prev_span.clone()))
+            Err(ParseError::ExpectSemicolonOrBlock.to_spanned(state.prev_span()))
         }
     }
 }
@@ -738,7 +727,7 @@ impl Parse for FnDecl {
         let body = SemicolonOrBlock::parse(state)?;
         let start = find_span_start!(name, colon_colon, args, ret, body);
         let end = find_span_end!(body, args, ret, colon_colon, name);
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        let span = Span::new(Some(state.path()), join_range(start, end));
         Ok(Self {
             name,
             colon_colon,
@@ -762,7 +751,7 @@ impl Parse for TypeDecl {
         let rhs = Ty::parse(state)?;
         let start = find_span_start!(type_, name, eq, rhs);
         let end = find_span_end!(rhs, eq, name, type_);
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        let span = Span::new(Some(state.path()), join_range(start, end));
         Ok(Self {
             type_,
             name,
@@ -785,7 +774,7 @@ impl Parse for TypeAlias {
         let rhs = Ty::parse(state)?;
         let start = find_span_start!(typealias, name, eq, rhs);
         let end = find_span_end!(rhs, eq, name, typealias);
-        let span = Span::new(Some(state.path.clone()), join_range(start, end));
+        let span = Span::new(Some(state.path()), join_range(start, end));
         Ok(Self {
             typealias,
             name,
@@ -809,7 +798,7 @@ impl Parse for Item {
         } else if TypeAlias::peek(state) {
             <(Spanned<TypeAlias>, Spanned<Token![;]>)>::parse(state).map(spanned_into)
         } else {
-            Err(ParseError::ExpectItem.to_spanned(state.prev_span.clone()))
+            Err(ParseError::ExpectItem.to_spanned(state.prev_span()))
         }
     }
 }

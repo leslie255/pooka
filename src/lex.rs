@@ -260,6 +260,11 @@ impl<'s> LexerState<'s> {
                 tokens.push(token);
                 Some(Ok(()))
             }
+            (start, '.') => {
+                let token = Token![.](span!(self.path.clone(), start..start));
+                tokens.push(token);
+                Some(Ok(()))
+            }
             (start, ',') => {
                 let token = Token![,](span!(self.path.clone(), start..start));
                 tokens.push(token);
@@ -375,11 +380,10 @@ fn parse_puntuation(s: &str) -> Token {
 }
 
 fn is_ident_body(c: char) -> bool {
+    // FIXME: Handle emojis.
     c.is_alphanumeric()
         || c == '_'
         || c == '\''
-        || unic_emoji_char::is_emoji(c)
-        || unic_emoji_char::is_emoji_component(c)
 }
 
 fn is_punct_body(c: char) -> bool {
