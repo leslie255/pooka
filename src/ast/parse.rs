@@ -730,7 +730,7 @@ impl Parse for Block {
     }
 }
 
-impl Parse for SemicolonOrBlock {
+impl Parse for FnBody {
     fn peek(state: &mut ParserState) -> bool {
         <Token![;]>::peek(state) | Block::peek(state)
     }
@@ -740,6 +740,16 @@ impl Parse for SemicolonOrBlock {
             <Token![;]>::parse(state).map(spanned_into)
         } else if Block::peek(state) {
             Block::parse(state).map(spanned_into)
+        } else if <Token![=]>::peek(state) {
+            let eq = <Token![=]>::parse(state)?;
+            let expr = Expr::parse(state)?;
+            let semicolon = <Token![;]>::parse(state)?;
+            let range = join_range(
+                find_span_start!(eq, expr, semicolon),
+                find_span_end!(semicolon, expr, eq),
+            );
+            let span = Span::new(Some(state.path()), range);
+            Ok(Self::Expr(eq, expr, semicolon).to_spanned(span))
         } else {
             Err(ParseError::ExpectSemicolonOrBlock.to_spanned(state.prev_span()))
         }
@@ -756,7 +766,7 @@ impl Parse for FnDecl {
         let colon_colon = <Token![::]>::parse(state)?;
         let args = FnDeclArgs::parse(state)?;
         let ret = FnDeclRet::parse(state)?;
-        let body = SemicolonOrBlock::parse(state)?;
+        let body = FnBody::parse(state)?;
         let range = join_range(
             find_span_start!(name, colon_colon, args, ret, body),
             find_span_end!(body, args, ret, colon_colon, name),
@@ -841,7 +851,7 @@ impl Parse for Item {
     }
 }
 
-macro find_span_start {
+pub macro find_span_start {
     ($withspan:expr) => {
         if let Some(range) = $withspan.span().range.clone() {
             Some(range.start)
@@ -859,7 +869,7 @@ macro find_span_start {
     () => {None},
 }
 
-macro find_span_end {
+pub macro find_span_end {
     ($withspan:expr) => {
         if let Some(range) = $withspan.span().range.clone() {
             Some(range.end)
@@ -877,7 +887,10 @@ macro find_span_end {
     () => {None},
 }
 
-fn join_range(start: Option<SourceIndex>, end: Option<SourceIndex>) -> Option<Range<SourceIndex>> {
+pub fn join_range(
+    start: Option<SourceIndex>,
+    end: Option<SourceIndex>,
+) -> Option<Range<SourceIndex>> {
     match (start, end) {
         (None, None) => None,
         (None, Some(i)) => Some(i..i),

@@ -181,6 +181,27 @@ pub mod tokens {
                     Debug::fmt(&self.0, f)
                 }
             }
+            impl std::ops::Deref for $name {
+                type Target = $field;
+                fn deref(&self) -> &<Self as std::ops::Deref>::Target {
+                    &self.0
+                }
+            }
+            impl std::ops::DerefMut for $name {
+                fn deref_mut(&mut self) -> &mut <Self as std::ops::Deref>::Target {
+                    &mut self.0
+                }
+            }
+            impl AsRef<$field> for $name {
+                fn as_ref(&self) -> &$field {
+                    &self.0
+                }
+            }
+            impl AsMut<$field> for $name {
+                fn as_mut(&mut self) -> &mut $field {
+                    &mut self.0
+                }
+            }
         },
     }
 

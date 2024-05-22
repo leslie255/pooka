@@ -1,6 +1,9 @@
 pub mod parse;
 
-use std::{fmt::{self, Debug}, rc::Rc};
+use std::{
+    fmt::{self, Debug},
+    rc::Rc,
+};
 
 use crate::{
     span::Spanned,
@@ -221,8 +224,9 @@ pub enum VarDecl {
 pub type FnDeclArgs = InParens<Punctuated<PatTy, Token![,]>>;
 pub type FnDeclRet = Option<(Spanned<Token![->]>, Spanned<Ty>)>;
 
-#[derive(Clone, PartialEq, From)]
-pub enum SemicolonOrBlock {
+#[derive(Clone, PartialEq, Debug, From)]
+pub enum FnBody {
+    Expr(Spanned<Token![=]>, Spanned<Expr>, Spanned<Token![;]>),
     Block(Block),
     Semicolon(Token![;]),
 }
@@ -233,7 +237,7 @@ pub struct FnDecl {
     pub colon_colon: Spanned<Token![::]>,
     pub args: Spanned<FnDeclArgs>,
     pub ret: Spanned<FnDeclRet>,
-    pub body: Spanned<SemicolonOrBlock>,
+    pub body: Spanned<FnBody>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -300,15 +304,6 @@ impl Debug for ColonEq_ {
         match self {
             ColonEq_::OneToken(t) => Debug::fmt(t, f),
             ColonEq_::TwoTokens(t0, t1) => f.debug_list().entry(t0).entry(t1).finish(),
-        }
-    }
-}
-
-impl Debug for SemicolonOrBlock {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SemicolonOrBlock::Block(body) => Debug::fmt(body, f),
-            SemicolonOrBlock::Semicolon(semicolon) => Debug::fmt(semicolon, f),
         }
     }
 }

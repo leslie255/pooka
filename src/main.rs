@@ -4,16 +4,17 @@
 use std::rc::Rc;
 
 mod ast;
+mod pir;
 mod source_str;
 mod span;
 mod token;
 
 fn main() {
-    use crate::ast::*;
     use crate::ast::parse::*;
+    use crate::ast::*;
     let path: Rc<str> = "source.pooka".into();
-    let src = "f :: (x: i32) -> i32 { f(x) }";
-    let tokens = token::lex::lex(path.clone(), src);
+    let src = std::fs::read_to_string(&path[..]).unwrap();
+    let tokens = token::lex::lex(path.clone(), &src);
     dbg!(&tokens);
     let mut parser_state = ParserState::new(&tokens, path.clone());
     let parse_result = parse::<Item>(&mut parser_state);
