@@ -1,6 +1,3 @@
-succ :: (x: i32) -> i32
-    = x + 1;
-
-add :: (x: i32, y: i32) -> i32
-    = x + y;
+type T = (i32, i32);
+typealias U = &[T];
 

@@ -15,8 +15,14 @@ use crate::{
     },
 };
 
-pub fn parse<T: Parse>(parser_state: &mut ParserState) -> Result<Spanned<T>, Spanned<ParseError>> {
-    T::parse(parser_state)
+pub fn parse<T: Parse>(
+    parser_state: &mut ParserState,
+) -> Option<Result<Spanned<T>, Spanned<ParseError>>> {
+    if T::peek(parser_state) {
+        Some(T::parse(parser_state))
+    } else {
+        None
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -833,7 +839,7 @@ impl Parse for TypeAlias {
     }
 }
 
-impl Parse for Item {
+impl Parse for AstItem {
     fn peek(state: &mut ParserState) -> bool {
         FnDecl::peek(state) | TypeDecl::peek(state) | TypeAlias::peek(state)
     }

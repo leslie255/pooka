@@ -25,6 +25,9 @@ impl<T, P> Punctuated<T, P> {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Spanned<T>> {
         self.into_iter()
     }
+    pub fn len(&self) -> usize {
+        self.pairs.len() + usize::from(self.last.is_some())
+    }
 }
 
 impl<'a, T, P> IntoIterator for &'a Punctuated<T, P> {
@@ -257,7 +260,7 @@ pub struct TypeAlias {
 }
 
 #[derive(Clone, PartialEq, Debug, From)]
-pub enum Item {
+pub enum AstItem {
     FnDecl(FnDecl),
     TypeDecl(Spanned<TypeDecl>, Spanned<Token![;]>),
     TypeAlias(Spanned<TypeAlias>, Spanned<Token![;]>),
