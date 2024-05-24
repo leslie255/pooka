@@ -188,7 +188,8 @@ pub enum Expr {
 
 #[derive(Clone, PartialEq, Debug, From)]
 pub enum Stmt {
-    Empty(Token![;]),
+    // Just a semicolon out of nowhere.
+    Nothing(Token![;]),
     Expr(Spanned<Expr>, Spanned<Token![;]>),
     VarDecl(Spanned<VarDecl>, Spanned<Token![;]>),
     Block(Block),
