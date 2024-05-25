@@ -65,8 +65,8 @@ pub enum MonoOper {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
-    pub stmts: Vec<Spanned<Stmt>>,
-    pub tail: Option<Box<Spanned<Expr>>>,
+    pub stmts: Vec<Stmt>,
+    pub tail: Option<Box<Expr>>,
 }
 
 #[derive(Debug, Clone, PartialEq, From)]
@@ -81,6 +81,7 @@ pub enum Expr {
     Call(Callee, Vec<Expr>),
     BinOper(Box<Expr>, BinOper, Box<Expr>),
     MonoOper(MonoOper, Box<Expr>),
+    Block(Block),
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -38,3 +38,19 @@ impl<I: Idx, T> IndexVecUncheckedGet<I, T> for IndexSlice<I, [T]> {
         self.raw.get_unchecked_mut(idx.index())
     }
 }
+
+pub trait OptionExt<T> {
+    fn try_map<U, E>(self, f: impl FnOnce(T) -> Result<U, E>) -> Result<Option<U>, E>;
+}
+
+impl<T> OptionExt<T> for Option<T> {
+    fn try_map<U, E>(self, f: impl FnOnce(T) -> Result<U, E>) -> Result<Option<U>, E> {
+        match self {
+            Some(x) => match f(x) {
+                Ok(x) => Ok(Some(x)),
+                Err(e) => Err(e),
+            },
+            None => Ok(None),
+        }
+    }
+}

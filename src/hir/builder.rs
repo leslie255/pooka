@@ -1,6 +1,7 @@
 use crate::ast;
 use crate::ast::AstItem;
 use crate::hir;
+use crate::utils::OptionExt;
 
 use super::*;
 
@@ -39,8 +40,8 @@ pub fn build_item(
             };
             let body = match body.inner() {
                 ast::FnBody::Expr(_, expr, _) => FnBody::Expr(build_expr(state, expr)?),
-                ast::FnBody::Block(_) => todo!(),
-                ast::FnBody::Semicolon(_) => todo!(),
+                ast::FnBody::Block(block) => FnBody::Block(build_block(state, block)?),
+                ast::FnBody::Semicolon(_) => FnBody::None,
             };
             Ok(HirItem::FnDecl {
                 name: name.as_ref().clone(),
@@ -62,9 +63,9 @@ pub fn build_item(
 
 pub fn build_stmt(
     state: &mut HirBuilderState,
-    expr: &Spanned<ast::Stmt>,
+    stmt: &Spanned<ast::Stmt>,
 ) -> Result<Stmt, Spanned<HirBuildError>> {
-    match expr.inner() {
+    match stmt.inner() {
         ast::Stmt::Nothing(_) => Ok(Stmt::Nothing),
         ast::Stmt::Expr(expr, _) => build_expr(state, expr).map(Stmt::Expr),
         ast::Stmt::VarDecl(vardecl, _) => match vardecl.inner() {
@@ -85,11 +86,10 @@ pub fn build_stmt(
                 rhs,
             } => Ok(Stmt::TypelessDecl(build_pat(lhs), build_expr(state, rhs)?)),
         },
-        ast::Stmt::Block(_) => todo!(),
+        ast::Stmt::Block(block) => build_block(state, block).map(Expr::Block).map(Stmt::Expr),
     }
 }
 
-#[allow(unused)]
 pub fn build_expr(
     state: &mut HirBuilderState,
     expr: &Spanned<ast::Expr>,
@@ -100,28 +100,46 @@ pub fn build_expr(
         ast::Expr::Tuple(_) => todo!(),
         ast::Expr::OperExpr(_) => todo!(),
         ast::Expr::Call(_, _) => todo!(),
-        ast::Expr::Block(_) => todo!(),
+        ast::Expr::Block(block) => build_block(state, block).map(Expr::Block),
     }
+}
+
+pub fn build_block(
+    state: &mut HirBuilderState,
+    block: &ast::Block,
+) -> Result<Block, Spanned<HirBuildError>> {
+    let stmts = block
+        .stmts
+        .iter()
+        .map(|stmt| build_stmt(state, stmt))
+        .collect::<Result<Vec<_>, _>>()?;
+    let tail = block
+        .tail
+        .as_deref()
+        .try_map(|expr| build_expr(state, expr))?
+        .map(Box::new);
+    Ok(Block { stmts, tail })
 }
 
 pub fn build_ty(ty: &Spanned<ast::Ty>) -> Ty {
     match ty.inner() {
+        #[rustfmt::skip]
         ast::Ty::Typename(ident) => match &ident.as_ref()[..] {
-            "isize" => hir::Ty::Int(Signness::Signed, IntSize::Size),
-            "i64" => hir::Ty::Int(Signness::Signed, IntSize::_64),
-            "i32" => hir::Ty::Int(Signness::Signed, IntSize::_32),
-            "i16" => hir::Ty::Int(Signness::Signed, IntSize::_16),
-            "i8" => hir::Ty::Int(Signness::Signed, IntSize::_8),
+            "isize" => hir::Ty::Int(Signness::Signed,   IntSize::Size),
+            "i64"   => hir::Ty::Int(Signness::Signed,   IntSize::_64),
+            "i32"   => hir::Ty::Int(Signness::Signed,   IntSize::_32),
+            "i16"   => hir::Ty::Int(Signness::Signed,   IntSize::_16),
+            "i8"    => hir::Ty::Int(Signness::Signed,   IntSize::_8),
             "usize" => hir::Ty::Int(Signness::Unsigned, IntSize::Size),
-            "u64" => hir::Ty::Int(Signness::Unsigned, IntSize::_64),
-            "u32" => hir::Ty::Int(Signness::Unsigned, IntSize::_32),
-            "u16" => hir::Ty::Int(Signness::Unsigned, IntSize::_16),
-            "u8" => hir::Ty::Int(Signness::Unsigned, IntSize::_8),
-            "f64" => hir::Ty::Float(FloatSize::_64),
-            "f32" => hir::Ty::Float(FloatSize::_32),
-            "char" => hir::Ty::Char,
-            "bool" => hir::Ty::Bool,
-            _ => hir::Ty::Typename(ident.as_ref().clone()),
+            "u64"   => hir::Ty::Int(Signness::Unsigned, IntSize::_64),
+            "u32"   => hir::Ty::Int(Signness::Unsigned, IntSize::_32),
+            "u16"   => hir::Ty::Int(Signness::Unsigned, IntSize::_16),
+            "u8"    => hir::Ty::Int(Signness::Unsigned, IntSize::_8),
+            "f64"   => hir::Ty::Float(FloatSize::_64),
+            "f32"   => hir::Ty::Float(FloatSize::_32),
+            "char"  => hir::Ty::Char,
+            "bool"  => hir::Ty::Bool,
+            _       => hir::Ty::Typename(ident.as_ref().clone()),
         },
         ast::Ty::Ptr {
             amp: _,
